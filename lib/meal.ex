@@ -775,92 +775,186 @@ defmodule Meal.Parallel do
 end
 
 defmodule Meal.Delegate do
-  defmacro __using__(to: module, only: :functions) do
+  defmacro __using__(to: module, only: :functions) when is_atom(module) do
     quote do
-      functions = unquote(module).__info__(:functions)
-                  |> Enum.filter(
-                       fn {name, arity} ->
-                         !Macro.operator?(name, arity)
-                         && {name, arity} != {:__struct__, 0}
-                         && {name, arity} != {:__struct__, 1}
-                       end
-                     )
-      arg = [functions: functions, to: unquote(module)]
+      if !Code.ensure_loaded?(unquote(module)) do
+        raise "can not find module #{unquote(module)}"
+      end
+
+      is_elixir_module = Atom.to_string(unquote(module))
+                         |> String.starts_with?("Elixir")
+      arg = if is_elixir_module do
+        functions = unquote(module).__info__(:functions)
+                    |> Enum.filter(
+                         fn {name, arity} ->
+                           !Macro.operator?(name, arity)
+                           && {name, arity} != {:__struct__, 0}
+                           && {name, arity} != {:__struct__, 1}
+                         end
+                       )
+        [functions: functions, to: unquote(module)]
+      else
+        functions = unquote(module).module_info(:exports)
+                    |> Enum.filter(
+                         fn {name, arity} ->
+                           {name, arity} != {:module_info, 0}
+                           && {name, arity} != {:module_info, 1}
+                         end
+                       )
+        [functions: functions, to: ":" <> Atom.to_string(unquote(module))]
+      end
+
       unquote(delegate_functions(quote(do: arg)))
     end
   end
 
-  defmacro __using__(to: module, only: :macros) do
+  defmacro __using__(to: module, only: :macros) when is_atom(module) do
     quote do
-      macros = unquote(module).__info__(:macros)
-               |> Enum.filter(&(!Macro.operator?(elem(&1, 0), elem(&1, 1))))
-      arg = [macros: macros, to: unquote(module)]
-      unquote(delegate_macros(quote(do: arg)))
+      if !Code.ensure_loaded?(unquote(module)) do
+        raise "can not find module #{unquote(module)}"
+      end
+
+      is_elixir_module = Atom.to_string(unquote(module))
+                         |> String.starts_with?("Elixir")
+
+      if is_elixir_module do
+        macros = unquote(module).__info__(:macros)
+                 |> Enum.filter(&(!Macro.operator?(elem(&1, 0), elem(&1, 1))))
+        arg = [macros: macros, to: unquote(module)]
+        unquote(delegate_macros(quote(do: arg)))
+      else
+        raise "can not delegate macros to erlang module"
+      end
     end
   end
 
-  defmacro __using__(to: module, only: list) when is_list(list) do
+  defmacro __using__(to: module, only: list) when is_atom(module) and is_list(list) do
     quote do
-      functions = unquote(module).__info__(:functions)
-                  |> Enum.filter(
-                       fn {name, arity} ->
-                         !Macro.operator?(name, arity)
-                         && {name, arity} != {:__struct__, 0}
-                         && {name, arity} != {:__struct__, 1}
-                       end
-                     )
-      macros = unquote(module).__info__(:macros)
-               |> Enum.filter(&(!Macro.operator?(elem(&1, 0), elem(&1, 1))))
+      if !Code.ensure_loaded?(unquote(module)) do
+        raise "can not find module #{unquote(module)}"
+      end
 
-      %{functions: functions, macros: macros} = Enum.reduce(
-        unquote(list),
-        %{functions: [], macros: []},
-        fn info, acc ->
-          cond do
-            info in functions ->
-              update_in(acc, [Access.key(:functions)], fn functions -> [info | functions] end)
-            info in macros ->
-              update_in(acc, [Access.key(:macros)], fn macros -> [info | macros] end)
-            {name, arity} = info ->
-              raise "cannot delegate to #{unquote(module)}.#{name}/#{arity} because it is undefined or private"
+      is_elixir_module = Atom.to_string(unquote(module))
+                         |> String.starts_with?("Elixir")
+
+      if is_elixir_module do
+        functions = unquote(module).__info__(:functions)
+                    |> Enum.filter(
+                         fn {name, arity} ->
+                           !Macro.operator?(name, arity)
+                           && {name, arity} != {:__struct__, 0}
+                           && {name, arity} != {:__struct__, 1}
+                         end
+                       )
+        macros = unquote(module).__info__(:macros)
+                 |> Enum.filter(&(!Macro.operator?(elem(&1, 0), elem(&1, 1))))
+
+        %{functions: functions, macros: macros} = Enum.reduce(
+          unquote(list),
+          %{functions: [], macros: []},
+          fn info, acc ->
+            cond do
+              info in functions ->
+                update_in(acc, [Access.key(:functions)], fn functions -> [info | functions] end)
+              info in macros ->
+                update_in(acc, [Access.key(:macros)], fn macros -> [info | macros] end)
+              {name, arity} = info ->
+                raise "cannot delegate to #{unquote(module)}.#{name}/#{arity} because it is undefined or private"
+            end
           end
-        end
-      )
+        )
 
-      arg = [functions: functions, to: unquote(module)]
-      unquote(delegate_functions(quote(do: arg)))
-      arg = [macros: macros, to: unquote(module)]
-      unquote(delegate_macros(quote(do: arg)))
+        arg = [functions: functions, to: unquote(module)]
+        unquote(delegate_functions(quote(do: arg)))
+        arg = [macros: macros, to: unquote(module)]
+        unquote(delegate_macros(quote(do: arg)))
+      else
+        functions = unquote(module).module_info(:exports)
+                    |> Enum.filter(
+                         fn {name, arity} ->
+                           {name, arity} != {:module_info, 0}
+                           && {name, arity} != {:module_info, 1}
+                         end
+                       )
+
+        %{functions: functions} = Enum.reduce(
+          unquote(list),
+          %{functions: []},
+          fn info, acc ->
+            cond do
+              info in functions ->
+                update_in(acc, [Access.key(:functions)], fn functions -> [info | functions] end)
+              {name, arity} = info ->
+                raise "cannot delegate to #{unquote(module)}.#{name}/#{arity} because it is undefined or private"
+            end
+          end
+        )
+
+        arg = [functions: functions, to: ":" <> Atom.to_string(unquote(module))]
+        unquote(delegate_functions(quote(do: arg)))
+      end
     end
   end
 
-  defmacro __using__(to: module, except: list) when is_list(list) do
+  defmacro __using__(to: module, except: list) when is_atom(module) and is_list(list) do
     quote do
-      functions = unquote(module).__info__(:functions)
-                  |> Enum.filter(
-                       fn {name, arity} ->
-                         !Macro.operator?(name, arity)
-                         && {name, arity} != {:__struct__, 0}
-                         && {name, arity} != {:__struct__, 1}
-                       end
-                     )
-      macros = unquote(module).__info__(:macros)
-               |> Enum.filter(&(!Macro.operator?(elem(&1, 0), elem(&1, 1))))
+      if !Code.ensure_loaded?(unquote(module)) do
+        raise "can not find module #{unquote(module)}"
+      end
 
-      functions = Keyword.filter(functions, fn info -> info not in unquote(list) end)
-      macros = Keyword.filter(macros, fn info -> info not in unquote(list) end)
+      is_elixir_module = Atom.to_string(unquote(module))
+                         |> String.starts_with?("Elixir")
 
-      arg = [functions: functions, to: unquote(module)]
-      unquote(delegate_functions(quote(do: arg)))
-      arg = [macros: macros, to: unquote(module)]
-      unquote(delegate_macros(quote(do: arg)))
+      if is_elixir_module do
+        functions = unquote(module).__info__(:functions)
+                    |> Enum.filter(
+                         fn {name, arity} ->
+                           !Macro.operator?(name, arity)
+                           && {name, arity} != {:__struct__, 0}
+                           && {name, arity} != {:__struct__, 1}
+                         end
+                       )
+        macros = unquote(module).__info__(:macros)
+                 |> Enum.filter(&(!Macro.operator?(elem(&1, 0), elem(&1, 1))))
+
+        functions = Keyword.filter(functions, fn info -> info not in unquote(list) end)
+        macros = Keyword.filter(macros, fn info -> info not in unquote(list) end)
+
+        arg = [functions: functions, to: unquote(module)]
+        unquote(delegate_functions(quote(do: arg)))
+        arg = [macros: macros, to: unquote(module)]
+        unquote(delegate_macros(quote(do: arg)))
+      else
+        functions = unquote(module).module_info(:exports)
+                    |> Enum.filter(
+                         fn {name, arity} ->
+                           {name, arity} != {:module_info, 0}
+                           && {name, arity} != {:module_info, 1}
+                         end
+                       )
+
+        functions = Keyword.filter(functions, fn info -> info not in unquote(list) end)
+
+        arg = [functions: functions, to: ":" <> Atom.to_string(unquote(module))]
+        unquote(delegate_functions(quote(do: arg)))
+      end
     end
   end
 
-  defmacro __using__(to: module) do
+  defmacro __using__(to: module) when is_atom(module) do
     quote do
+      if !Code.ensure_loaded?(unquote(module)) do
+        raise "can not find module #{unquote(module)}"
+      end
+
+      is_elixir_module = Atom.to_string(unquote(module))
+                         |> String.starts_with?("Elixir")
+
       Meal.Delegate.__using__(to: unquote(module), only: :functions)
-      Meal.Delegate.__using__(to: unquote(module), only: :macros)
+
+      if is_elixir_module do
+        Meal.Delegate.__using__(to: unquote(module), only: :macros)
+      end
     end
   end
 
@@ -870,7 +964,9 @@ defmodule Meal.Delegate do
           ] do
       [functions: functions, to: module] = arg
       get_delegate_function_str = fn {name, arity}, module ->
-        "defdelegate #{name}(#{Enum.map_join(1..arity//1, ",", &("arg" <> to_string(&1)))}), to: #{module}"
+        """
+        defdelegate #{name}(#{Enum.map_join(1..arity//1, ",", &("arg" <> to_string(&1)))}), to: #{module}
+        """
       end
 
       for {name, arity} <- functions do

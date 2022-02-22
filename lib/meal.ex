@@ -972,6 +972,8 @@ defmodule Meal.Delegate do
       for {name, arity} <- functions do
         Code.eval_string(get_delegate_function_str.({name, arity}, module), [], __ENV__)
       end
+
+      defoverridable functions
     end
   end
 
@@ -996,6 +998,8 @@ defmodule Meal.Delegate do
       for {name, arity} <- macros do
         Code.eval_string(get_delegate_macro_str.({name, arity}, module), [], __ENV__)
       end
+
+      defoverridable macros
     end
   end
 end

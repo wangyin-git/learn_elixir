@@ -131,6 +131,18 @@ defmodule Meal do
     IO.inspect(term)
   end
 
+  def normalize_index(enumerable, index) do
+    size = Enum.count(enumerable)
+    if index >= 0, do: index, else: index + size
+  end
+
+  def enumerable_wrap(element) do
+    case Enumerable.impl_for(element) do
+      nil -> [element]
+      _ -> element
+    end
+  end
+
   defguard is_pos_integer(int) when is_integer(int) and int > 0
 
   defguard is_non_neg_integer(int) when is_integer(int) and int >= 0

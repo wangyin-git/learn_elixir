@@ -1,9 +1,6 @@
 import Meal, warn: false
 alias Meal.Array, warn: false
 
-#Array.__info__(:functions) |> p
+array = Array.from_list([1,2,3,4,5,6])
 
-array = Array.new({:default, "xx"})
-array = Array.set(0, 1, array)
-
-Array.size(array) |> p
+get_and_update_in(array, [1..2], fn value -> {value, 999} end) |> p

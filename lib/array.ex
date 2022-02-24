@@ -83,7 +83,7 @@ defmodule Meal.Array do
 
   def get(%Array{} = array, index, default) when is_integer(index) do
     index = Meal.normalize_index(array, index)
-    if index < 0 do
+    if index < 0 || index >= size(array) do
       default
     else
       :array.get(index, array.__array__)

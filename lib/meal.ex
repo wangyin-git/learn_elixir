@@ -131,9 +131,16 @@ defmodule Meal do
     IO.inspect(term)
   end
 
-  def normalize_index(enumerable, index) do
+  def normalize_index(enumerable, index) when is_integer(index) do
     size = Enum.count(enumerable)
     if index >= 0, do: index, else: index + size
+  end
+
+  def enumerable?(element) do
+    case Enumerable.impl_for(element) do
+      nil -> false
+      _ -> true
+    end
   end
 
   def enumerable_wrap(element) do

@@ -5,23 +5,23 @@ defmodule Meal.Array do
   require Meal
   alias __MODULE__
 
-  defstruct [__array__: :array.new()]
+  defstruct [size: 0, default: :array.default(:array.new()), __array__: :array.new()]
 
   def new() do
     %Array{}
   end
 
   def new(size) when Meal.is_non_neg_integer(size) do
-    %Array{__array__: :array.new(size: size, fixed: false)}
+    %Array{size: size, __array__: :array.new(size: size, fixed: false)}
   end
 
   def new(size: size, default: default_value) when Meal.is_non_neg_integer(size) do
-    %Array{__array__: :array.new(size: size, default: default_value, fixed: false)}
+    %Array{size: size, default: default_value, __array__: :array.new(size: size, default: default_value, fixed: false)}
   end
 
   def from_erlang_array(array) do
     if :array.is_array(array) do
-      %Array{__array__: array}
+      %Array{size: :array.size(array), default: :array.default(array), __array__: array}
     else
       raise "can not create #{__MODULE__} from #{array}"
     end
@@ -77,10 +77,6 @@ defmodule Meal.Array do
     :array.sparse_size(array.__array__)
   end
 
-  def get(%Array{} = array, index) when is_integer(index) do
-    get(array, index, default(array))
-  end
-
   def get(%Array{} = array, index, default) when is_integer(index) do
     index = Meal.normalize_index(array, index)
     if index < 0 || index >= size(array) do
@@ -88,6 +84,10 @@ defmodule Meal.Array do
     else
       :array.get(index, array.__array__)
     end
+  end
+
+  def get(%Array{} = array, index) when is_integer(index) do
+    get(array, index, default(array))
   end
 
   def slice(%Array{} = array, first..last) do
@@ -107,8 +107,23 @@ defmodule Meal.Array do
   end
 
   def insert_at(%Array{} = array, index, value) when is_integer(index) do
-    to_list(array)
-    |> List.insert_at(index, value)
+    insert_splicing_at(array, index, [value])
+  end
+
+  def insert_splicing_at(%Array{} = array, index, enumerable) when is_integer(index) do
+    index = if index < 0 do
+              Meal.normalize_index(array, index) + 1
+            else
+              Meal.normalize_index(array, index)
+            end
+            |> min(size(array))
+            |> max(0)
+
+    left_count = Range.size(0..(index - 1)//1)
+    right_count = Range.size((index + 1)..size(array)//1)
+    Enum.concat(
+      [Enum.slice(array, 0, left_count), Meal.enumerable_wrap(enumerable), Enum.slice(array, left_count, right_count)]
+    )
     |> from_list()
   end
 
@@ -120,6 +135,10 @@ defmodule Meal.Array do
 
   def delete_slice(%Array{} = array, first..last) do
     replace_slice(array, first..last, [])
+  end
+
+  def delete_slice(%Array{} = array, start, amount) when is_integer(start) and Meal.is_non_neg_integer(amount) do
+    replace_slice(array, start, amount, [])
   end
 
   def delete(%Array{} = array, element) do
@@ -179,6 +198,14 @@ defmodule Meal.Array do
     end
   end
 
+  def pop_slice(%Array{} = array, start, amount) when is_integer(start) and Meal.is_non_neg_integer(amount) do
+    if amount == 0 do
+      {new(), array}
+    else
+      pop_slice(array, start..(start + amount - 1))
+    end
+  end
+
   def replace_at(%Array{} = array, index, value) when is_integer(index) do
     to_list(array)
     |> List.replace_at(index, value)
@@ -202,12 +229,13 @@ defmodule Meal.Array do
     end
   end
 
-  def replace(%Array{} = array, index, value) when is_integer(index) do
-    replace_at(array, index, value)
-  end
-
-  def replace(%Array{} = array, first..last, enumerable) do
-    replace_slice(array, first..last, enumerable)
+  def replace_slice(%Array{} = array, start, amount, enumerable)
+      when is_integer(start) and Meal.is_non_neg_integer(amount) do
+    if amount == 0 do
+      array
+    else
+      replace_slice(array, start..(start + amount - 1), enumerable)
+    end
   end
 
   def starts_with?(%Array{} = array, %Array{} = prefix) do
@@ -241,12 +269,13 @@ defmodule Meal.Array do
     end
   end
 
-  def update(%Array{} = array, index, fun) when is_integer(index) and is_function(fun, 1) do
-    update_at(array, index, fun)
-  end
-
-  def update(%Array{} = array, first..last, fun) when is_function(fun, 1) do
-    update_slice(array, first..last, fun)
+  def update_slice(%Array{} = array, start, amount, fun)
+      when is_integer(start) and Meal.is_non_neg_integer(amount) and is_function(fun, 1) do
+    if amount == 0 do
+      array
+    else
+      update_slice(array, start..(start + amount - 1), fun)
+    end
   end
 
   def zip(%Array{} = array) do
@@ -369,6 +398,16 @@ defmodule Meal.Array do
   end
 
   @impl Access
+  def fetch(%Array{} = array, {start, amount}) when is_integer(start) and Meal.is_non_neg_integer(amount) do
+    array = slice(array, start, amount)
+    if size(array) == 0 do
+      :error
+    else
+      {:ok, array}
+    end
+  end
+
+  @impl Access
   def fetch(nil, index) when is_integer(index) do
     :error
   end
@@ -381,6 +420,11 @@ defmodule Meal.Array do
   @impl Access
   def pop(%Array{} = array, first..last) do
     pop_slice(array, first..last)
+  end
+
+  @impl Access
+  def pop(%Array{} = array, {start, amount}) when is_integer(start) and Meal.is_non_neg_integer(amount) do
+    pop_slice(array, start, amount)
   end
 
   @impl Access
@@ -400,6 +444,16 @@ defmodule Meal.Array do
     case result do
       :pop -> pop(array, first..last)
       {cur_value, new_value} -> {cur_value, replace_slice(array, first..last, Meal.enumerable_wrap(new_value))}
+    end
+  end
+
+  @impl Access
+  def get_and_update(%Array{} = array, {start, amount}, fun) when is_integer(start) and Meal.is_non_neg_integer(amount) and is_function(fun, 1) do
+    result = array[{start, amount}]
+             |> then(fun)
+    case result do
+      :pop -> pop(array, {start, amount})
+      {cur_value, new_value} -> {cur_value, replace_slice(array, start, amount, Meal.enumerable_wrap(new_value))}
     end
   end
 end

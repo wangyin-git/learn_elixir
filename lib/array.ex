@@ -110,7 +110,7 @@ defmodule Meal.Array do
   def slice(%Array{} = array, start_index, amount) when is_integer(start_index) and is_integer(amount) do
     cond do
       amount < 0 -> Enum.slice(array, start_index..-1)
-      true -> Enum.slice(array, start_index, amount)
+      amount >= 0 -> Enum.slice(array, start_index, amount)
     end
     |> from_list()
   end
@@ -155,7 +155,7 @@ defmodule Meal.Array do
   def delete_slice(%Array{} = array, start, amount) when is_integer(start) and is_integer(amount) do
     cond do
       amount < 0 -> replace_slice(array, start..-1, [])
-      true -> replace_slice(array, start, amount, [])
+      amount >= 0 -> replace_slice(array, start, amount, [])
     end
   end
 
@@ -217,13 +217,10 @@ defmodule Meal.Array do
   end
 
   def pop_slice(%Array{} = array, start, amount) when is_integer(start) and is_integer(amount) do
-    if amount == 0 do
-      {new(), array}
-    else
-      cond do
-        amount < 0 -> pop_slice(array, start..-1)
-        true -> pop_slice(array, start..(start + amount - 1))
-      end
+    cond do
+      amount == 0 -> {new(), array}
+      amount < 0 -> pop_slice(array, start..-1)
+      amount > 0 -> pop_slice(array, start..(start + amount - 1))
     end
   end
 
@@ -252,13 +249,10 @@ defmodule Meal.Array do
 
   def replace_slice(%Array{} = array, start, amount, enumerable)
       when is_integer(start) and is_integer(amount) do
-    if amount == 0 do
-      array
-    else
-      cond do
-        amount < 0 -> replace_slice(array, start..-1, enumerable)
-        true -> replace_slice(array, start..(start + amount - 1), enumerable)
-      end
+    cond do
+      amount == 0 -> array
+      amount < 0 -> replace_slice(array, start..-1, enumerable)
+      amount > 0 -> replace_slice(array, start..(start + amount - 1), enumerable)
     end
   end
 
@@ -295,13 +289,10 @@ defmodule Meal.Array do
 
   def update_slice(%Array{} = array, start, amount, fun)
       when is_integer(start) and is_integer(amount) and is_function(fun, 1) do
-    if amount == 0 do
-      array
-    else
-      cond do
-        amount < 0 -> update_slice(array, start..-1, fun)
-        true -> update_slice(array, start..(start + amount - 1), fun)
-      end
+    cond do
+      amount == 0 -> array
+      amount < 0 -> update_slice(array, start..-1, fun)
+      amount > 0 -> update_slice(array, start..(start + amount - 1), fun)
     end
   end
 

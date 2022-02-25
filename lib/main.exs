@@ -3,4 +3,4 @@ alias Meal.Array, warn: false
 
 
 array = Array.from_enumerable(1..10)
-array[2..-1] |> p
+Array.delete_slice(array, 1, -1) |> p

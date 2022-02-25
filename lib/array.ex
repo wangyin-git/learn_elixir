@@ -5,14 +5,14 @@ defmodule Meal.Array do
   require Meal
   alias __MODULE__
 
-  defstruct [size: 0, default: :array.default(:array.new()), __array__: :array.new()]
+  defstruct [size: 0, default: nil, __array__: :array.new(default: nil)]
 
   def new() do
     %Array{}
   end
 
   def new(size) when Meal.is_non_neg_integer(size) do
-    %Array{size: size, __array__: :array.new(size: size, fixed: false)}
+    new(size: size, default: nil)
   end
 
   def new(size: size, default: default_value) when Meal.is_non_neg_integer(size) do
@@ -28,8 +28,7 @@ defmodule Meal.Array do
   end
 
   def from_list(list) when is_list(list) do
-    :array.from_list(list)
-    |> from_erlang_array()
+    from_list(list, nil)
   end
 
   def from_list(list, default) when is_list(list) do
@@ -38,8 +37,7 @@ defmodule Meal.Array do
   end
 
   def from_index_paris(index_pairs) when is_list(index_pairs) do
-    :array.from_orddict(Enum.map(index_pairs, &{elem(&1, 1), elem(&1, 0)}))
-    |> from_erlang_array()
+    from_index_paris(index_pairs, nil)
   end
 
   def from_index_paris(index_pairs, default) when is_list(index_pairs) do
@@ -48,13 +46,7 @@ defmodule Meal.Array do
   end
 
   def from_enumerable(enumerable) do
-    if !Meal.enumerable?(enumerable) do
-      raise "can not create #{__MODULE__} from #{enumerable}"
-    end
-    enumerable
-    |> Enum.to_list()
-    |> :array.from_list()
-    |> from_erlang_array()
+    from_enumerable(enumerable, nil)
   end
 
   def from_enumerable(enumerable, default) do

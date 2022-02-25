@@ -127,8 +127,8 @@ defmodule Meal do
     end
   end
 
-  def p(term) do
-    IO.inspect(term)
+  def p(term, opts \\ [charlists: :as_lists, limit: :infinity, printable_limit: :infinity]) do
+    IO.inspect(term, opts)
   end
 
   def normalize_index(enumerable, index) when is_integer(index) do

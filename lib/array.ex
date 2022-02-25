@@ -47,6 +47,26 @@ defmodule Meal.Array do
     |> from_erlang_array()
   end
 
+  def from_enumerable(enumerable) do
+    if !Meal.enumerable?(enumerable) do
+      raise "can not create #{__MODULE__} from #{enumerable}"
+    end
+    enumerable
+    |> Enum.to_list()
+    |> :array.from_list()
+    |> from_erlang_array()
+  end
+
+  def from_enumerable(enumerable, default) do
+    if !Meal.enumerable?(enumerable) do
+      raise "can not create #{__MODULE__} from #{enumerable}"
+    end
+    enumerable
+    |> Enum.to_list()
+    |> :array.from_list(default)
+    |> from_erlang_array()
+  end
+
   def to_list(%Array{} = array) do
     :array.to_list(array.__array__)
   end
@@ -95,8 +115,11 @@ defmodule Meal.Array do
     |> from_list()
   end
 
-  def slice(%Array{} = array, start_index, amount) when is_integer(start_index) and Meal.is_non_neg_integer(amount) do
-    Enum.slice(array, start_index, amount)
+  def slice(%Array{} = array, start_index, amount) when is_integer(start_index) and is_integer(amount) do
+    cond do
+      amount < 0 -> Enum.slice(array, start_index..-1)
+      true -> Enum.slice(array, start_index, amount)
+    end
     |> from_list()
   end
 
@@ -137,8 +160,11 @@ defmodule Meal.Array do
     replace_slice(array, first..last, [])
   end
 
-  def delete_slice(%Array{} = array, start, amount) when is_integer(start) and Meal.is_non_neg_integer(amount) do
-    replace_slice(array, start, amount, [])
+  def delete_slice(%Array{} = array, start, amount) when is_integer(start) and is_integer(amount) do
+    cond do
+      amount < 0 -> replace_slice(array, start..-1, [])
+      true -> replace_slice(array, start, amount, [])
+    end
   end
 
   def delete(%Array{} = array, element) do
@@ -198,11 +224,14 @@ defmodule Meal.Array do
     end
   end
 
-  def pop_slice(%Array{} = array, start, amount) when is_integer(start) and Meal.is_non_neg_integer(amount) do
+  def pop_slice(%Array{} = array, start, amount) when is_integer(start) and is_integer(amount) do
     if amount == 0 do
       {new(), array}
     else
-      pop_slice(array, start..(start + amount - 1))
+      cond do
+        amount < 0 -> pop_slice(array, start..-1)
+        true -> pop_slice(array, start..(start + amount - 1))
+      end
     end
   end
 
@@ -230,11 +259,14 @@ defmodule Meal.Array do
   end
 
   def replace_slice(%Array{} = array, start, amount, enumerable)
-      when is_integer(start) and Meal.is_non_neg_integer(amount) do
+      when is_integer(start) and is_integer(amount) do
     if amount == 0 do
       array
     else
-      replace_slice(array, start..(start + amount - 1), enumerable)
+      cond do
+        amount < 0 -> replace_slice(array, start..-1, enumerable)
+        true -> replace_slice(array, start..(start + amount - 1), enumerable)
+      end
     end
   end
 
@@ -270,11 +302,14 @@ defmodule Meal.Array do
   end
 
   def update_slice(%Array{} = array, start, amount, fun)
-      when is_integer(start) and Meal.is_non_neg_integer(amount) and is_function(fun, 1) do
+      when is_integer(start) and is_integer(amount) and is_function(fun, 1) do
     if amount == 0 do
       array
     else
-      update_slice(array, start..(start + amount - 1), fun)
+      cond do
+        amount < 0 -> update_slice(array, start..-1, fun)
+        true -> update_slice(array, start..(start + amount - 1), fun)
+      end
     end
   end
 
@@ -398,7 +433,7 @@ defmodule Meal.Array do
   end
 
   @impl Access
-  def fetch(%Array{} = array, {start, amount}) when is_integer(start) and Meal.is_non_neg_integer(amount) do
+  def fetch(%Array{} = array, {start, amount}) when is_integer(start) and is_integer(amount) do
     array = slice(array, start, amount)
     if size(array) == 0 do
       :error
@@ -423,7 +458,7 @@ defmodule Meal.Array do
   end
 
   @impl Access
-  def pop(%Array{} = array, {start, amount}) when is_integer(start) and Meal.is_non_neg_integer(amount) do
+  def pop(%Array{} = array, {start, amount}) when is_integer(start) and is_integer(amount) do
     pop_slice(array, start, amount)
   end
 
@@ -448,7 +483,8 @@ defmodule Meal.Array do
   end
 
   @impl Access
-  def get_and_update(%Array{} = array, {start, amount}, fun) when is_integer(start) and Meal.is_non_neg_integer(amount) and is_function(fun, 1) do
+  def get_and_update(%Array{} = array, {start, amount}, fun)
+      when is_integer(start) and is_integer(amount) and is_function(fun, 1) do
     result = array[{start, amount}]
              |> then(fun)
     case result do

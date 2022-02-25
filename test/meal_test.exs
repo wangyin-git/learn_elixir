@@ -3,6 +3,6 @@ defmodule MealTest do
   doctest Meal
 
   test "greets the world" do
-    assert Meal.hello() == :world
+    assert Meal.p(:world) == :world
   end
 end

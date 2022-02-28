@@ -150,6 +150,46 @@ defmodule Meal do
     end
   end
 
+  def flatten(deep_enumerable) do
+    if enumerable?(deep_enumerable) do
+      _flatten(deep_enumerable, [])
+    else
+      raise "can not faltten #{deep_enumerable}, it must be enumerable"
+    end
+  end
+
+  def flatten(deep_enumerable, tail) do
+    flatten(deep_enumerable) ++ Enum.to_list(enumerable_wrap(tail))
+  end
+
+  def _flatten(deep_enumerable, result_list) do
+    case Enum.split(deep_enumerable, 1) do
+      {[e], rest} -> if enumerable?(e) do
+                       _flatten(_flat_one_level(e) ++ rest, result_list)
+                     else
+                       _flatten(rest, [e | result_list])
+                     end
+      {[], []} -> Enum.reverse(result_list)
+    end
+  end
+  defp _flat_one_level(enumerable) do
+    Enum.reduce(
+      enumerable,
+      [],
+      fn e, acc ->
+        if enumerable?(e) do
+          e
+          |> Enum.to_list()
+          |> Enum.reverse()
+          |> Enum.concat(acc)
+        else
+          [e | acc]
+        end
+      end
+    )
+    |> Enum.reverse()
+  end
+
   defguard is_pos_integer(int) when is_integer(int) and int > 0
 
   defguard is_non_neg_integer(int) when is_integer(int) and int >= 0

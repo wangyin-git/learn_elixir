@@ -344,6 +344,41 @@ defmodule Meal.Array do
     |> from_erlang_array()
   end
 
+  def bsearch(%Array{} = array, target) do
+    case size(array) do
+      0 -> {:insert_index, 0}
+      1 -> cond do
+             array[0] === target -> {:target_index, 0}
+             array[0] < target -> {:insert_index, 1}
+             array[0] > target -> {:insert_index, 0}
+           end
+      _ -> if array[0] <= array[1] do
+             _bsearch(array, target, 0, size(array) - 1, :asc)
+           else
+             _bsearch(array, target, 0, size(array) - 1, :desc)
+           end
+    end
+  end
+  defp _bsearch(_, _, low, high, _) when low > high, do: {:insert_index, low}
+  defp _bsearch(%Array{} = array, target, low, high, :asc) do
+    mid_idx = div(low + high, 2)
+    pilot = array[mid_idx]
+    cond do
+      pilot === target -> {:target_index, mid_idx}
+      pilot < target -> _bsearch(array, target, mid_idx + 1, high, :asc)
+      pilot > target -> _bsearch(array, target, low, mid_idx - 1, :asc)
+    end
+  end
+  defp _bsearch(%Array{} = array, target, low, high, :desc) do
+    mid_idx = div(low + high, 2)
+    pilot = array[mid_idx]
+    cond do
+      pilot === target -> {:target_index, mid_idx}
+      pilot < target -> _bsearch(array, target, low, mid_idx - 1, :desc)
+      pilot > target -> _bsearch(array, target, mid_idx + 1, high, :desc)
+    end
+  end
+
   defimpl Inspect do
     import Inspect.Algebra
 

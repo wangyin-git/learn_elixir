@@ -162,7 +162,7 @@ defmodule Meal do
     flatten(deep_enumerable) ++ Enum.to_list(enumerable_wrap(tail))
   end
 
-  def _flatten(deep_enumerable, result_list) do
+  defp _flatten(deep_enumerable, result_list) do
     case Enum.split(deep_enumerable, 1) do
       {[e], rest} -> if enumerable?(e) do
                        _flatten(_flat_one_level(e) ++ rest, result_list)
@@ -243,10 +243,10 @@ defmodule Meal do
   end
 
   def partial_apply(fun, args_map) when is_function(fun) and is_map(args_map) do
-    if !Enum.all?(args_map, fn {key, _} -> is_integer(key) && key > 0 end) do
-      raise "map keys must be all positive integer"
-    end
     {:arity, arity} = Function.info(fun, :arity)
+    if !Enum.all?(args_map, fn {key, _} -> is_integer(key) && key >= 1 && key <= arity end) do
+      raise "map keys must be in 1..#{arity}"
+    end
     case arity do
       0 -> fun.()
       arity ->
@@ -1062,3 +1062,52 @@ defmodule Meal.Delegate do
     end
   end
 end
+
+#defmodule Meal.Bits do
+#  require Meal
+#  alias __MODULE__
+#
+#  defstruct [size: 0, __bits__: ""]
+#
+#  def new(bits) when is_bitstring(bits) do
+#    %Bits{size: bit_size(bits), __bits__: bits}
+#  end
+#
+#  def get(%Bits{__bits__: bits}, index, default \\ nil) when is_integer(index) do
+#    <<_::size(index), bit::size(1), _::bitstring>> = bits
+#    bit
+#  end
+#
+##  defimpl Enumerable do
+##    def count(%Bits{size: size} = bits) do
+##      {:ok, size}
+##    end
+##
+##    def member?(%Bits{}, _element) do
+##      {:error, __MODULE__}
+##    end
+##
+##    def slice(%Bits{size: size} = bits) do
+##      {
+##        :ok,
+##        size,
+##        fn start, len ->
+##          Enum.reduce(start..(start + len - 1), [], fn idx, acc -> [Array.get(array, idx) | acc] end)
+##          |> Enum.reverse()
+##        end
+##      }
+##    end
+##
+##    def reduce(_array, {:halt, acc}, _fun), do: {:halted, acc}
+##    def reduce(array, {:suspend, acc}, fun), do: {:suspended, acc, &reduce(array, &1, fun)}
+##    def reduce(%Array{} = array, {:cont, acc}, fun) do
+##      if Array.size(array) == 0 do
+##        {:done, acc}
+##      else
+##        [head | tail] = Array.to_list(array)
+##        reduce(Array.from_list(tail), fun.(head, acc), fun)
+##      end
+##    end
+##  end
+#end
+

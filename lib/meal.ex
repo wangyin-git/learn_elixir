@@ -244,9 +244,6 @@ defmodule Meal do
 
   def partial_apply(fun, args_map) when is_function(fun) and is_map(args_map) do
     {:arity, arity} = Function.info(fun, :arity)
-    if !Enum.all?(args_map, fn {key, _} -> is_integer(key) && key >= 1 && key <= arity end) do
-      raise "map keys must be in 1..#{arity}"
-    end
     case arity do
       0 -> fun.()
       arity ->

@@ -1,5 +1,4 @@
 defmodule Meal.Array do
-  @moduledoc false
   @behaviour Access
 
   require Meal

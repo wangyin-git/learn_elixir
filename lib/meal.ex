@@ -831,7 +831,7 @@ defmodule Meal.Parallel do
 end
 
 defmodule Meal.Delegate do
-  defmacro __using__(to: module, only: :functions) when is_atom(module) do
+  defmacro __using__(to: module, only: :functions) do
     quote do
       if !Code.ensure_loaded?(unquote(module)) do
         raise "can not find module #{unquote(module)}"
@@ -864,7 +864,7 @@ defmodule Meal.Delegate do
     end
   end
 
-  defmacro __using__(to: module, only: :macros) when is_atom(module) do
+  defmacro __using__(to: module, only: :macros) do
     quote do
       if !Code.ensure_loaded?(unquote(module)) do
         raise "can not find module #{unquote(module)}"
@@ -884,7 +884,7 @@ defmodule Meal.Delegate do
     end
   end
 
-  defmacro __using__(to: module, only: list) when is_atom(module) and is_list(list) do
+  defmacro __using__(to: module, only: list) do
     quote do
       if !Code.ensure_loaded?(unquote(module)) do
         raise "can not find module #{unquote(module)}"
@@ -952,7 +952,7 @@ defmodule Meal.Delegate do
     end
   end
 
-  defmacro __using__(to: module, except: list) when is_atom(module) and is_list(list) do
+  defmacro __using__(to: module, except: list) do
     quote do
       if !Code.ensure_loaded?(unquote(module)) do
         raise "can not find module #{unquote(module)}"
@@ -997,7 +997,7 @@ defmodule Meal.Delegate do
     end
   end
 
-  defmacro __using__(to: module) when is_atom(module) do
+  defmacro __using__(to: module) do
     quote do
       if !Code.ensure_loaded?(unquote(module)) do
         raise "can not find module #{unquote(module)}"
@@ -1059,52 +1059,4 @@ defmodule Meal.Delegate do
     end
   end
 end
-
-#defmodule Meal.Bits do
-#  require Meal
-#  alias __MODULE__
-#
-#  defstruct [size: 0, __bits__: ""]
-#
-#  def new(bits) when is_bitstring(bits) do
-#    %Bits{size: bit_size(bits), __bits__: bits}
-#  end
-#
-#  def get(%Bits{__bits__: bits}, index, default \\ nil) when is_integer(index) do
-#    <<_::size(index), bit::size(1), _::bitstring>> = bits
-#    bit
-#  end
-#
-##  defimpl Enumerable do
-##    def count(%Bits{size: size} = bits) do
-##      {:ok, size}
-##    end
-##
-##    def member?(%Bits{}, _element) do
-##      {:error, __MODULE__}
-##    end
-##
-##    def slice(%Bits{size: size} = bits) do
-##      {
-##        :ok,
-##        size,
-##        fn start, len ->
-##          Enum.reduce(start..(start + len - 1), [], fn idx, acc -> [Array.get(array, idx) | acc] end)
-##          |> Enum.reverse()
-##        end
-##      }
-##    end
-##
-##    def reduce(_array, {:halt, acc}, _fun), do: {:halted, acc}
-##    def reduce(array, {:suspend, acc}, fun), do: {:suspended, acc, &reduce(array, &1, fun)}
-##    def reduce(%Array{} = array, {:cont, acc}, fun) do
-##      if Array.size(array) == 0 do
-##        {:done, acc}
-##      else
-##        [head | tail] = Array.to_list(array)
-##        reduce(Array.from_list(tail), fun.(head, acc), fun)
-##      end
-##    end
-##  end
-#end
 

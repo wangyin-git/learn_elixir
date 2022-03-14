@@ -2,6 +2,17 @@ defmodule Meal do
   @break_label :break_5bae
   @continue_label :continue_5bae
 
+  defmacro block(do: do_clause) do
+    quote do
+      try do
+        unquote(do_clause)
+      catch
+        unquote(@break_label) -> nil
+        {unquote(@break_label), var} -> var
+      end
+    end
+  end
+
   defmacro loop(do: do_clause) do
     quote do
       try do

@@ -18,7 +18,7 @@ defmodule Meal.String do
         valid_character?: 1
       ]
   def byte_at(str, pos) when is_binary(str) and is_integer(pos) do
-    pos = Meal.normalize_index(1..byte_size(str), pos)
+    pos = Meal.normalize_index(1..byte_size(str)//1, pos)
     if pos >= 0 && pos < byte_size(str) do
       <<_ :: binary - size(pos), byte :: 8, _ :: binary>> = str
       byte
@@ -29,8 +29,8 @@ defmodule Meal.String do
 
   def byte_slice(str, first..last) when is_binary(str) do
     size = byte_size(str)
-    with first when first >= 0 and first < size <- Meal.normalize_index(1..size, first),
-         last when first <= last <- Meal.normalize_index(1..size, last) do
+    with first when first >= 0 and first < size <- Meal.normalize_index(1..size//1, first),
+         last when first <= last <- Meal.normalize_index(1..size//1, last) do
       len = min(size - first, last - first + 1)
       <<_ :: binary - size(first), bytes :: binary - size(len), _ :: binary>> = str
       bytes
@@ -62,8 +62,8 @@ defmodule Meal.String do
 
   def replace_slice(str, first..last, replacement) when is_binary(str) and is_binary(replacement) do
     len = String.length(str)
-    with first when first >= 0 and first < len <- Meal.normalize_index(1..len, first),
-         last when first <= last <- Meal.normalize_index(1..len, last) do
+    with first when first >= 0 and first < len <- Meal.normalize_index(1..len//1, first),
+         last when first <= last <- Meal.normalize_index(1..len//1, last) do
       String.slice(str, 0..max(0, first - 1)) <> replacement <> String.slice(str, last + 1..-1)
     else
       _ -> str
@@ -79,6 +79,20 @@ defmodule Meal.String do
       length > 0 && start < 0 && start + length - 1 < 0 -> replace_slice(str, start..start + length - 1, replacement)
       length > 0 && start < 0 && start + length - 1 >= 0 -> replace_slice(str, start..-1, replacement)
     end
+  end
+
+  def delete_slice(str, first..last) when is_binary(str) do
+    replace_slice(str, first..last, "")
+  end
+
+  def delete_slice(str, start, length) when is_binary(str) and is_integer(start) and is_integer(length) do
+    replace_slice(str, start, length, "")
+  end
+
+  def insert_at(str, index, content) when is_binary(str) and is_integer(index) and is_binary(content) do
+    String.graphemes(str)
+    |> List.insert_at(index, content)
+    |> Enum.join()
   end
 end
 

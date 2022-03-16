@@ -106,10 +106,10 @@ defmodule Meal.Array do
     |> from_list()
   end
 
-  def slice(%Array{} = array, start_index, amount) when is_integer(start_index) and is_integer(amount) do
+  def slice(%Array{} = array, start_index, length) when is_integer(start_index) and is_integer(length) do
     cond do
-      amount < 0 -> Enum.slice(array, start_index..-1)
-      amount >= 0 -> Enum.slice(array, start_index, amount)
+      length < 0 -> Enum.slice(array, start_index..-1)
+      length >= 0 -> Enum.slice(array, start_index, length)
     end
     |> from_list()
   end
@@ -151,10 +151,10 @@ defmodule Meal.Array do
     replace_slice(array, first..last, [])
   end
 
-  def delete_slice(%Array{} = array, start, amount) when is_integer(start) and is_integer(amount) do
+  def delete_slice(%Array{} = array, start, length) when is_integer(start) and is_integer(length) do
     cond do
-      amount < 0 -> replace_slice(array, start..-1, [])
-      amount >= 0 -> replace_slice(array, start, amount, [])
+      length < 0 -> replace_slice(array, start..-1, [])
+      length >= 0 -> replace_slice(array, start, length, [])
     end
   end
 
@@ -451,8 +451,8 @@ defmodule Meal.Array do
   end
 
   @impl Access
-  def fetch(%Array{} = array, {start, amount}) when is_integer(start) and is_integer(amount) do
-    array = slice(array, start, amount)
+  def fetch(%Array{} = array, {start, length}) when is_integer(start) and is_integer(length) do
+    array = slice(array, start, length)
     if size(array) == 0 do
       :error
     else
@@ -476,8 +476,8 @@ defmodule Meal.Array do
   end
 
   @impl Access
-  def pop(%Array{} = array, {start, amount}) when is_integer(start) and is_integer(amount) do
-    pop_slice(array, start, amount)
+  def pop(%Array{} = array, {start, length}) when is_integer(start) and is_integer(length) do
+    pop_slice(array, start, length)
   end
 
   @impl Access
@@ -501,13 +501,13 @@ defmodule Meal.Array do
   end
 
   @impl Access
-  def get_and_update(%Array{} = array, {start, amount}, fun)
-      when is_integer(start) and is_integer(amount) and is_function(fun, 1) do
-    result = array[{start, amount}]
+  def get_and_update(%Array{} = array, {start, length}, fun)
+      when is_integer(start) and is_integer(length) and is_function(fun, 1) do
+    result = array[{start, length}]
              |> then(fun)
     case result do
-      :pop -> pop(array, {start, amount})
-      {cur_value, new_value} -> {cur_value, replace_slice(array, start, amount, Meal.enumerable_wrap(new_value))}
+      :pop -> pop(array, {start, length})
+      {cur_value, new_value} -> {cur_value, replace_slice(array, start, length, Meal.enumerable_wrap(new_value))}
     end
   end
 end

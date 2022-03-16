@@ -147,6 +147,10 @@ defmodule Meal do
     if index >= 0, do: index, else: index + size
   end
 
+  def normalize_index(enumerable, first..last) do
+    normalize_index(enumerable, first)..normalize_index(enumerable, last)
+  end
+
   def enumerable?(element) do
     case Enumerable.impl_for(element) do
       nil -> false

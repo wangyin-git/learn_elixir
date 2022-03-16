@@ -197,29 +197,30 @@ defmodule Meal.Array do
 
   def pop_slice(%Array{} = array, first..last) do
     size = size(array)
-    result = with first when first >= 0 and first < size <- Meal.normalize_index(array, first),
-                  last when first <= last <- Meal.normalize_index(array, last) do
+    with first when first >= 0 and first < size <- Meal.normalize_index(array, first),
+         last when first <= last <- Meal.normalize_index(array, last) do
       left_count = Range.size(0..(first - 1)//1)
       right_count = Range.size((last + 1)..(size(array) - 1)//1)
       {
-        Enum.slice(array, first..last),
+        Enum.slice(array, first..last)
+        |> from_list(),
         Enum.concat(
           [Enum.slice(array, 0, left_count), Enum.slice(array, last + 1, right_count)]
         )
+        |> from_list()
       }
-    end
-
-    case result do
-      v when not is_tuple(v) -> {new(), array}
-      {popped, remained} -> {from_list(popped), from_list(remained)}
+    else
+      _ -> {new(), array}
     end
   end
 
-  def pop_slice(%Array{} = array, start, amount) when is_integer(start) and is_integer(amount) do
+  def pop_slice(%Array{} = array, start, length) when is_integer(start) and is_integer(length) do
     cond do
-      amount == 0 -> {new(), array}
-      amount < 0 -> pop_slice(array, start..-1)
-      amount > 0 -> pop_slice(array, start..(start + amount - 1))
+      length == 0 -> {new(), array}
+      length < 0 -> pop_slice(array, start..-1)
+      length > 0 && start >= 0 -> pop_slice(array, start..start + length - 1)
+      length > 0 && start < 0 && start + length - 1 < 0 -> pop_slice(array, start..start + length - 1)
+      length > 0 && start < 0 && start + length - 1 >= 0 -> pop_slice(array, start..-1)
     end
   end
 
@@ -231,27 +232,27 @@ defmodule Meal.Array do
 
   def replace_slice(%Array{} = array, first..last, enumerable) do
     size = size(array)
-    result = with first when first >= 0 and first < size <- Meal.normalize_index(array, first),
-                  last when first <= last <- Meal.normalize_index(array, last) do
+    with first when first >= 0 and first < size <- Meal.normalize_index(array, first),
+         last when first <= last <- Meal.normalize_index(array, last) do
       left_count = Range.size(0..(first - 1)//1)
       right_count = Range.size((last + 1)..(size(array) - 1)//1)
       Enum.concat(
         [Enum.slice(array, 0, left_count), Meal.enumerable_wrap(enumerable), Enum.slice(array, last + 1, right_count)]
       )
-    end
-
-    case result do
-      v when not is_list(v) -> array
-      list -> from_list(list)
+      |> from_list()
+    else
+      _ -> array
     end
   end
 
-  def replace_slice(%Array{} = array, start, amount, enumerable)
-      when is_integer(start) and is_integer(amount) do
+  def replace_slice(%Array{} = array, start, length, enumerable)
+      when is_integer(start) and is_integer(length) do
     cond do
-      amount == 0 -> array
-      amount < 0 -> replace_slice(array, start..-1, enumerable)
-      amount > 0 -> replace_slice(array, start..(start + amount - 1), enumerable)
+      length == 0 -> array
+      length < 0 -> replace_slice(array, start..-1, enumerable)
+      length > 0 && start >= 0 -> replace_slice(array, start..start + length - 1, enumerable)
+      length > 0 && start < 0 && start + length - 1 < 0 -> replace_slice(array, start..start + length - 1, enumerable)
+      length > 0 && start < 0 && start + length - 1 >= 0 -> replace_slice(array, start..-1, enumerable)
     end
   end
 
@@ -267,8 +268,8 @@ defmodule Meal.Array do
 
   def update_slice(%Array{} = array, first..last, fun) when is_function(fun, 1) do
     size = size(array)
-    result = with first when first >= 0 and first < size <- Meal.normalize_index(array, first),
-                  last when first <= last <- Meal.normalize_index(array, last) do
+    with first when first >= 0 and first < size <- Meal.normalize_index(array, first),
+         last when first <= last <- Meal.normalize_index(array, last) do
       left_count = Range.size(0..(first - 1)//1)
       right_count = Range.size((last + 1)..(size(array) - 1)//1)
       Enum.concat(
@@ -278,20 +279,20 @@ defmodule Meal.Array do
           Enum.slice(array, last + 1, right_count)
         ]
       )
-    end
-
-    case result do
-      v when not is_list(v) -> array
-      list -> from_list(list)
+      |> from_list()
+    else
+      _ -> array
     end
   end
 
-  def update_slice(%Array{} = array, start, amount, fun)
-      when is_integer(start) and is_integer(amount) and is_function(fun, 1) do
+  def update_slice(%Array{} = array, start, length, fun)
+      when is_integer(start) and is_integer(length) and is_function(fun, 1) do
     cond do
-      amount == 0 -> array
-      amount < 0 -> update_slice(array, start..-1, fun)
-      amount > 0 -> update_slice(array, start..(start + amount - 1), fun)
+      length == 0 -> array
+      length < 0 -> update_slice(array, start..-1, fun)
+      length > 0 && start >= 0 -> update_slice(array, start..start + length - 1, fun)
+      length > 0 && start < 0 && start + length - 1 < 0 -> update_slice(array, start..start + length - 1, fun)
+      length > 0 && start < 0 && start + length - 1 >= 0 -> update_slice(array, start..-1, fun)
     end
   end
 

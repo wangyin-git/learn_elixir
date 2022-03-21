@@ -165,16 +165,19 @@ defmodule Meal do
     end
   end
 
-  def flatten(deep_enumerable) do
+  def flatten(deep_enumerable, level \\ -1, tail \\ []) do
     if enumerable?(deep_enumerable) do
-      _flatten(deep_enumerable, [])
+      case level do
+        n when is_integer(n) and n < 0 -> _flatten(deep_enumerable, [])
+        0 -> Enum.to_list(deep_enumerable)
+        n when is_integer(n) and n > 0 -> Enum.reduce(1..n, deep_enumerable, fn _, acc ->
+          _flat_one_level(acc)
+        end)
+      end
+      |> Enum.concat(enumerable_wrap(tail))
     else
       raise "can not faltten #{deep_enumerable}, it must be enumerable"
     end
-  end
-
-  def flatten(deep_enumerable, tail) do
-    flatten(deep_enumerable) ++ Enum.to_list(enumerable_wrap(tail))
   end
 
   defp _flatten(deep_enumerable, result_list) do

@@ -76,4 +76,8 @@ defmodule Meal.Stream do
         )
     end
   end
+
+  def _permutation_all(n) do
+
+  end
 end

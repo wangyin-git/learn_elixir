@@ -188,21 +188,7 @@ defmodule Meal do
     end
   end
   defp _flat_one_level(enumerable) do
-    Enum.reduce(
-      enumerable,
-      [],
-      fn e, acc ->
-        if enumerable?(e) do
-          e
-          |> Enum.to_list()
-          |> Enum.reverse()
-          |> Enum.concat(acc)
-        else
-          [e | acc]
-        end
-      end
-    )
-    |> Enum.reverse()
+    Enum.flat_map(enumerable, fn e -> enumerable_wrap(e) end)
   end
 
   defguard is_pos_integer(int) when is_integer(int) and int > 0

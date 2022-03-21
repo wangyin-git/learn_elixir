@@ -4,7 +4,6 @@ alias Meal.String, warn: false
 alias Meal.Stack, warn: false
 
 
-for i <- 1..3, into: Stack.new() do
-  i
-end
+[1,[2,[3,[4, [5,6]]]]]
+|> flatten()
 |> p()

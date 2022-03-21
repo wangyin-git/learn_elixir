@@ -21,7 +21,7 @@ defmodule Meal.Stream do
             ^end_comb -> nil
             prev_comb ->
               Enum.reduce_while(
-                -1..-n,
+                -1..-r,
                 prev_comb,
                 fn idx, comb ->
                   add_one = comb[idx] + 1
@@ -36,7 +36,44 @@ defmodule Meal.Stream do
               |> then(&{&1, &1})
           end
         )
+    end
+  end
 
+  def repeated_combination(enumerable, r) when is_integer(r) do
+    count = Enum.count(enumerable)
+    _repeated_combination(count, r)
+    |> Stream.map(fn comb -> Enum.map(comb, &Enum.at(enumerable, &1)) end)
+  end
+
+  defp _repeated_combination(n, r) do
+    cond do
+      r < 0 -> Stream.concat([])
+      r == 0 -> Stream.concat([[]], [])
+      r > 0 ->
+        start_comb = Array.from_list(List.duplicate(0, r))
+        end_comb = Array.from_enumerable(List.duplicate(n-1, r))
+        Stream.unfold(
+          :start,
+          fn
+            :start -> {start_comb, start_comb}
+            ^end_comb -> nil
+            prev_comb ->
+              Enum.reduce_while(
+                -1..-r,
+                prev_comb,
+                fn idx, comb ->
+                  add_one = comb[idx] + 1
+                  if add_one <= n - 1 do
+                    next_comb = Array.replace_slice(comb, idx, -1, List.duplicate(add_one, -idx))
+                    {:halt, next_comb}
+                  else
+                    {:cont, comb}
+                  end
+                end
+              )
+              |> then(&{&1, &1})
+          end
+        )
     end
   end
 end

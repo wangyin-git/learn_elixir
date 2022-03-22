@@ -1,26 +1,29 @@
 defmodule Meal.String do
   require Meal
+
   use Meal.Delegate,
-      to: String,
-      except: [
-        ljust: 2,
-        ljust: 3,
-        lstrip: 1,
-        lstrip: 2,
-        next_grapheme_size: 1,
-        rjust: 2,
-        rjust: 3,
-        rstrip: 1,
-        rstrip: 2,
-        strip: 1,
-        strip: 2,
-        to_char_list: 1,
-        valid_character?: 1
-      ]
+    to: String,
+    except: [
+      ljust: 2,
+      ljust: 3,
+      lstrip: 1,
+      lstrip: 2,
+      next_grapheme_size: 1,
+      rjust: 2,
+      rjust: 3,
+      rstrip: 1,
+      rstrip: 2,
+      strip: 1,
+      strip: 2,
+      to_char_list: 1,
+      valid_character?: 1
+    ]
+
   def byte_at(str, pos) when is_binary(str) and is_integer(pos) do
     pos = Meal.normalize_index(1..byte_size(str)//1, pos)
+
     if pos >= 0 && pos < byte_size(str) do
-      <<_ :: binary - size(pos), byte :: 8, _ :: binary>> = str
+      <<_::binary-size(pos), byte::8, _::binary>> = str
       byte
     else
       nil
@@ -29,10 +32,11 @@ defmodule Meal.String do
 
   def byte_slice(str, first..last) when is_binary(str) do
     size = byte_size(str)
+
     with first when first >= 0 and first < size <- Meal.normalize_index(1..size//1, first),
          last when first <= last <- Meal.normalize_index(1..size//1, last) do
       len = min(size - first, last - first + 1)
-      <<_ :: binary - size(first), bytes :: binary - size(len), _ :: binary>> = str
+      <<_::binary-size(first), bytes::binary-size(len), _::binary>> = str
       bytes
     else
       _ -> ""
@@ -41,30 +45,45 @@ defmodule Meal.String do
 
   def byte_slice(str, start, length) when is_integer(start) and is_integer(length) do
     cond do
-      length == 0 -> str
-      length < 0 -> byte_slice(str, start..-1)
-      length > 0 && start >= 0 -> byte_slice(str, start..start + length - 1)
-      length > 0 && start < 0 && start + length - 1 < 0 -> byte_slice(str, start..start + length - 1)
-      length > 0 && start < 0 && start + length - 1 >= 0 -> byte_slice(str, start..-1)
+      length == 0 ->
+        str
+
+      length < 0 ->
+        byte_slice(str, start..-1)
+
+      length > 0 && start >= 0 ->
+        byte_slice(str, start..(start + length - 1))
+
+      length > 0 && start < 0 && start + length - 1 < 0 ->
+        byte_slice(str, start..(start + length - 1))
+
+      length > 0 && start < 0 && start + length - 1 >= 0 ->
+        byte_slice(str, start..-1)
     end
   end
 
   def indexOf(str, pattern, pos \\ 0)
-  def indexOf(str, %Regex{} = pattern, pos) when is_binary(str) and Meal.is_non_neg_integer(pos) do
+
+  def indexOf(str, %Regex{} = pattern, pos)
+      when is_binary(str) and Meal.is_non_neg_integer(pos) do
     case Regex.run(pattern, str, return: :index, offset: pos) do
       nil -> nil
       [{start, _}] -> start
     end
   end
-  def indexOf(str, pattern, pos) when is_binary(str) and is_binary(pattern) and Meal.is_non_neg_integer(pos)  do
+
+  def indexOf(str, pattern, pos)
+      when is_binary(str) and is_binary(pattern) and Meal.is_non_neg_integer(pos) do
     indexOf(str, ~r/#{Regex.escape(pattern)}/, pos)
   end
 
-  def replace_slice(str, first..last, replacement) when is_binary(str) and is_binary(replacement) do
+  def replace_slice(str, first..last, replacement)
+      when is_binary(str) and is_binary(replacement) do
     len = String.length(str)
+
     with first when first >= 0 and first < len <- Meal.normalize_index(1..len//1, first),
          last when first <= last <- Meal.normalize_index(1..len//1, last) do
-      String.slice(str, 0..max(0, first - 1)) <> replacement <> String.slice(str, last + 1..-1)
+      String.slice(str, 0..max(0, first - 1)) <> replacement <> String.slice(str, (last + 1)..-1)
     else
       _ -> str
     end
@@ -73,11 +92,20 @@ defmodule Meal.String do
   def replace_slice(str, start, length, replacement)
       when is_integer(start) and is_integer(length) and is_binary(replacement) do
     cond do
-      length == 0 -> str
-      length < 0 -> replace_slice(str, start..-1, replacement)
-      length > 0 && start >= 0 -> replace_slice(str, start..start + length - 1, replacement)
-      length > 0 && start < 0 && start + length - 1 < 0 -> replace_slice(str, start..start + length - 1, replacement)
-      length > 0 && start < 0 && start + length - 1 >= 0 -> replace_slice(str, start..-1, replacement)
+      length == 0 ->
+        str
+
+      length < 0 ->
+        replace_slice(str, start..-1, replacement)
+
+      length > 0 && start >= 0 ->
+        replace_slice(str, start..(start + length - 1), replacement)
+
+      length > 0 && start < 0 && start + length - 1 < 0 ->
+        replace_slice(str, start..(start + length - 1), replacement)
+
+      length > 0 && start < 0 && start + length - 1 >= 0 ->
+        replace_slice(str, start..-1, replacement)
     end
   end
 
@@ -85,11 +113,13 @@ defmodule Meal.String do
     replace_slice(str, first..last, "")
   end
 
-  def delete_slice(str, start, length) when is_binary(str) and is_integer(start) and is_integer(length) do
+  def delete_slice(str, start, length)
+      when is_binary(str) and is_integer(start) and is_integer(length) do
     replace_slice(str, start, length, "")
   end
 
-  def insert_at(str, index, content) when is_binary(str) and is_integer(index) and is_binary(content) do
+  def insert_at(str, index, content)
+      when is_binary(str) and is_integer(index) and is_binary(content) do
     String.graphemes(str)
     |> List.insert_at(index, content)
     |> Enum.join()
@@ -101,8 +131,10 @@ defmodule Meal.String.Stream do
     Stream.unfold(
       str,
       fn
-        "" -> nil
-        <<byte :: 8, rest :: binary>> ->
+        "" ->
+          nil
+
+        <<byte::8, rest::binary>> ->
           {byte, rest}
       end
     )
@@ -131,11 +163,13 @@ defmodule Meal.String.Stream do
   def lines(str, separator: separator, chomp: chomp)
       when is_binary(str) and is_binary(separator) and is_boolean(chomp) do
     {:ok, regex} = Regex.compile(Regex.escape(separator))
+
     Stream.unfold(
       str,
       fn
         "" ->
           nil
+
         str ->
           case Regex.split(regex, str, parts: 2) do
             [left, right] -> if chomp, do: {left, right}, else: {left <> separator, right}

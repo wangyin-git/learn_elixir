@@ -46,13 +46,15 @@ defmodule Meal.Iterator do
   end
 
   def stop(%Meal.Iterator{agent: agent}) do
-    code = quote do
-      if Process.alive?(unquote(agent)) do
-        Agent.stop(unquote(agent))
-      else
-        :iterator_already_stopped
+    code =
+      quote do
+        if Process.alive?(unquote(agent)) do
+          Agent.stop(unquote(agent))
+        else
+          :iterator_already_stopped
+        end
       end
-    end
+
     Meal.ExecuteServer.send(code: code, binding: [])
   end
 
@@ -78,12 +80,15 @@ defimpl Enumerable, for: Meal.Iterator do
 
   def reduce(_iter, {:halt, acc}, _fun), do: {:halted, acc}
   def reduce(iter, {:suspend, acc}, fun), do: {:suspended, acc, &reduce(iter, &1, fun)}
+
   def reduce(%Iterator{} = iter, {:cont, acc}, fun) do
     if Iterator.end?(iter) do
       {:done, acc}
     else
-      head = Iterator.next(iter)
-             |> elem(1)
+      head =
+        Iterator.next(iter)
+        |> elem(1)
+
       reduce(iter, fun.(head, acc), fun)
     end
   end

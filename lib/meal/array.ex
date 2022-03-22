@@ -4,7 +4,7 @@ defmodule Meal.Array do
   require Meal
   alias __MODULE__
 
-  defstruct [size: 0, default: nil, __array__: :array.new(default: nil)]
+  defstruct size: 0, default: nil, __array__: :array.new(default: nil)
 
   def new() do
     %Array{}
@@ -15,7 +15,11 @@ defmodule Meal.Array do
   end
 
   def new(size: size, default: default_value) when Meal.is_non_neg_integer(size) do
-    %Array{size: size, default: default_value, __array__: :array.new(size: size, default: default_value, fixed: false)}
+    %Array{
+      size: size,
+      default: default_value,
+      __array__: :array.new(size: size, default: default_value, fixed: false)
+    }
   end
 
   def from_erlang_array(array) do
@@ -52,6 +56,7 @@ defmodule Meal.Array do
     if !Meal.enumerable?(enumerable) do
       raise "can not create #{__MODULE__} from #{enumerable}"
     end
+
     enumerable
     |> Enum.to_list()
     |> :array.from_list(default)
@@ -90,6 +95,7 @@ defmodule Meal.Array do
 
   def get(%Array{} = array, index, default) when is_integer(index) do
     index = Meal.normalize_index(array, index)
+
     if index < 0 || index >= size(array) do
       default
     else
@@ -106,7 +112,8 @@ defmodule Meal.Array do
     |> from_list()
   end
 
-  def slice(%Array{} = array, start_index, length) when is_integer(start_index) and is_integer(length) do
+  def slice(%Array{} = array, start_index, length)
+      when is_integer(start_index) and is_integer(length) do
     cond do
       length < 0 -> Enum.slice(array, start_index..-1)
       length >= 0 -> Enum.slice(array, start_index, length)
@@ -116,6 +123,7 @@ defmodule Meal.Array do
 
   def set(%Array{} = array, index, value) when is_integer(index) do
     index = Meal.normalize_index(array, index)
+
     :array.set(index, value, array.__array__)
     |> from_erlang_array()
   end
@@ -125,19 +133,23 @@ defmodule Meal.Array do
   end
 
   def insert_splicing_at(%Array{} = array, index, enumerable) when is_integer(index) do
-    index = if index < 0 do
-              Meal.normalize_index(array, index) + 1
-            else
-              Meal.normalize_index(array, index)
-            end
-            |> min(size(array))
-            |> max(0)
+    index =
+      if index < 0 do
+        Meal.normalize_index(array, index) + 1
+      else
+        Meal.normalize_index(array, index)
+      end
+      |> min(size(array))
+      |> max(0)
 
     left_count = Range.size(0..(index - 1)//1)
     right_count = Range.size((index + 1)..size(array)//1)
-    Enum.concat(
-      [Enum.slice(array, 0, left_count), Meal.enumerable_wrap(enumerable), Enum.slice(array, left_count, right_count)]
-    )
+
+    Enum.concat([
+      Enum.slice(array, 0, left_count),
+      Meal.enumerable_wrap(enumerable),
+      Enum.slice(array, left_count, right_count)
+    ])
     |> from_list()
   end
 
@@ -151,7 +163,8 @@ defmodule Meal.Array do
     replace_slice(array, first..last, [])
   end
 
-  def delete_slice(%Array{} = array, start, length) when is_integer(start) and is_integer(length) do
+  def delete_slice(%Array{} = array, start, length)
+      when is_integer(start) and is_integer(length) do
     cond do
       length < 0 -> replace_slice(array, start..-1, [])
       length >= 0 -> replace_slice(array, start, length, [])
@@ -197,16 +210,16 @@ defmodule Meal.Array do
 
   def pop_slice(%Array{} = array, first..last) do
     size = size(array)
+
     with first when first >= 0 and first < size <- Meal.normalize_index(array, first),
          last when first <= last <- Meal.normalize_index(array, last) do
       left_count = Range.size(0..(first - 1)//1)
       right_count = Range.size((last + 1)..(size(array) - 1)//1)
+
       {
         Enum.slice(array, first..last)
         |> from_list(),
-        Enum.concat(
-          [Enum.slice(array, 0, left_count), Enum.slice(array, last + 1, right_count)]
-        )
+        Enum.concat([Enum.slice(array, 0, left_count), Enum.slice(array, last + 1, right_count)])
         |> from_list()
       }
     else
@@ -216,11 +229,20 @@ defmodule Meal.Array do
 
   def pop_slice(%Array{} = array, start, length) when is_integer(start) and is_integer(length) do
     cond do
-      length == 0 -> {new(), array}
-      length < 0 -> pop_slice(array, start..-1)
-      length > 0 && start >= 0 -> pop_slice(array, start..start + length - 1)
-      length > 0 && start < 0 && start + length - 1 < 0 -> pop_slice(array, start..start + length - 1)
-      length > 0 && start < 0 && start + length - 1 >= 0 -> pop_slice(array, start..-1)
+      length == 0 ->
+        {new(), array}
+
+      length < 0 ->
+        pop_slice(array, start..-1)
+
+      length > 0 && start >= 0 ->
+        pop_slice(array, start..(start + length - 1))
+
+      length > 0 && start < 0 && start + length - 1 < 0 ->
+        pop_slice(array, start..(start + length - 1))
+
+      length > 0 && start < 0 && start + length - 1 >= 0 ->
+        pop_slice(array, start..-1)
     end
   end
 
@@ -232,13 +254,17 @@ defmodule Meal.Array do
 
   def replace_slice(%Array{} = array, first..last, enumerable) do
     size = size(array)
+
     with first when first >= 0 and first < size <- Meal.normalize_index(array, first),
          last when first <= last <- Meal.normalize_index(array, last) do
       left_count = Range.size(0..(first - 1)//1)
       right_count = Range.size((last + 1)..(size(array) - 1)//1)
-      Enum.concat(
-        [Enum.slice(array, 0, left_count), Meal.enumerable_wrap(enumerable), Enum.slice(array, last + 1, right_count)]
-      )
+
+      Enum.concat([
+        Enum.slice(array, 0, left_count),
+        Meal.enumerable_wrap(enumerable),
+        Enum.slice(array, last + 1, right_count)
+      ])
       |> from_list()
     else
       _ -> array
@@ -248,11 +274,20 @@ defmodule Meal.Array do
   def replace_slice(%Array{} = array, start, length, enumerable)
       when is_integer(start) and is_integer(length) do
     cond do
-      length == 0 -> array
-      length < 0 -> replace_slice(array, start..-1, enumerable)
-      length > 0 && start >= 0 -> replace_slice(array, start..start + length - 1, enumerable)
-      length > 0 && start < 0 && start + length - 1 < 0 -> replace_slice(array, start..start + length - 1, enumerable)
-      length > 0 && start < 0 && start + length - 1 >= 0 -> replace_slice(array, start..-1, enumerable)
+      length == 0 ->
+        array
+
+      length < 0 ->
+        replace_slice(array, start..-1, enumerable)
+
+      length > 0 && start >= 0 ->
+        replace_slice(array, start..(start + length - 1), enumerable)
+
+      length > 0 && start < 0 && start + length - 1 < 0 ->
+        replace_slice(array, start..(start + length - 1), enumerable)
+
+      length > 0 && start < 0 && start + length - 1 >= 0 ->
+        replace_slice(array, start..-1, enumerable)
     end
   end
 
@@ -268,17 +303,17 @@ defmodule Meal.Array do
 
   def update_slice(%Array{} = array, first..last, fun) when is_function(fun, 1) do
     size = size(array)
+
     with first when first >= 0 and first < size <- Meal.normalize_index(array, first),
          last when first <= last <- Meal.normalize_index(array, last) do
       left_count = Range.size(0..(first - 1)//1)
       right_count = Range.size((last + 1)..(size(array) - 1)//1)
-      Enum.concat(
-        [
-          Enum.slice(array, 0, left_count),
-          fun.(Enum.slice(array, first..last)),
-          Enum.slice(array, last + 1, right_count)
-        ]
-      )
+
+      Enum.concat([
+        Enum.slice(array, 0, left_count),
+        fun.(Enum.slice(array, first..last)),
+        Enum.slice(array, last + 1, right_count)
+      ])
       |> from_list()
     else
       _ -> array
@@ -288,11 +323,20 @@ defmodule Meal.Array do
   def update_slice(%Array{} = array, start, length, fun)
       when is_integer(start) and is_integer(length) and is_function(fun, 1) do
     cond do
-      length == 0 -> array
-      length < 0 -> update_slice(array, start..-1, fun)
-      length > 0 && start >= 0 -> update_slice(array, start..start + length - 1, fun)
-      length > 0 && start < 0 && start + length - 1 < 0 -> update_slice(array, start..start + length - 1, fun)
-      length > 0 && start < 0 && start + length - 1 >= 0 -> update_slice(array, start..-1, fun)
+      length == 0 ->
+        array
+
+      length < 0 ->
+        update_slice(array, start..-1, fun)
+
+      length > 0 && start >= 0 ->
+        update_slice(array, start..(start + length - 1), fun)
+
+      length > 0 && start < 0 && start + length - 1 < 0 ->
+        update_slice(array, start..(start + length - 1), fun)
+
+      length > 0 && start < 0 && start + length - 1 >= 0 ->
+        update_slice(array, start..-1, fun)
     end
   end
 
@@ -330,6 +374,7 @@ defmodule Meal.Array do
 
   def reset(%Array{} = array, index) when is_integer(index) do
     index = Meal.normalize_index(array, index)
+
     :array.reset(index, array.__array__)
     |> from_erlang_array()
   end
@@ -346,32 +391,42 @@ defmodule Meal.Array do
 
   def bsearch(%Array{} = array, target) do
     case size(array) do
-      0 -> {:insert_index, 0}
-      1 -> cond do
-             array[0] === target -> {:target_index, 0}
-             array[0] < target -> {:insert_index, 1}
-             array[0] > target -> {:insert_index, 0}
-           end
-      _ -> if array[0] <= array[1] do
-             _bsearch(array, target, 0, size(array) - 1, :asc)
-           else
-             _bsearch(array, target, 0, size(array) - 1, :desc)
-           end
+      0 ->
+        {:insert_index, 0}
+
+      1 ->
+        cond do
+          array[0] === target -> {:target_index, 0}
+          array[0] < target -> {:insert_index, 1}
+          array[0] > target -> {:insert_index, 0}
+        end
+
+      _ ->
+        if array[0] <= array[1] do
+          _bsearch(array, target, 0, size(array) - 1, :asc)
+        else
+          _bsearch(array, target, 0, size(array) - 1, :desc)
+        end
     end
   end
+
   defp _bsearch(_, _, low, high, _) when low > high, do: {:insert_index, low}
+
   defp _bsearch(%Array{} = array, target, low, high, :asc) do
     mid_idx = div(low + high, 2)
     pilot = array[mid_idx]
+
     cond do
       pilot === target -> {:target_index, mid_idx}
       pilot < target -> _bsearch(array, target, mid_idx + 1, high, :asc)
       pilot > target -> _bsearch(array, target, low, mid_idx - 1, :asc)
     end
   end
+
   defp _bsearch(%Array{} = array, target, low, high, :desc) do
     mid_idx = div(low + high, 2)
     pilot = array[mid_idx]
+
     cond do
       pilot === target -> {:target_index, mid_idx}
       pilot < target -> _bsearch(array, target, low, mid_idx - 1, :desc)
@@ -401,7 +456,9 @@ defmodule Meal.Array do
         :ok,
         Array.size(array),
         fn start, len ->
-          Enum.reduce(start..(start + len - 1), [], fn idx, acc -> [Array.get(array, idx) | acc] end)
+          Enum.reduce(start..(start + len - 1), [], fn idx, acc ->
+            [Array.get(array, idx) | acc]
+          end)
           |> Enum.reverse()
         end
       }
@@ -409,6 +466,7 @@ defmodule Meal.Array do
 
     def reduce(_array, {:halt, acc}, _fun), do: {:halted, acc}
     def reduce(array, {:suspend, acc}, fun), do: {:suspended, acc, &reduce(array, &1, fun)}
+
     def reduce(%Array{} = array, {:cont, acc}, fun) do
       if Array.size(array) == 0 do
         {:done, acc}
@@ -422,10 +480,11 @@ defmodule Meal.Array do
   defimpl Collectable do
     def into(%Array{} = array) do
       collector_fun = fn
-        (acc, {:cont, elem}) -> Array.insert_at(acc, -1, elem)
-        (acc, :done) -> acc
-        (_, :halt) -> :ok
+        acc, {:cont, elem} -> Array.insert_at(acc, -1, elem)
+        acc, :done -> acc
+        _, :halt -> :ok
       end
+
       {array, collector_fun}
     end
   end
@@ -433,6 +492,7 @@ defmodule Meal.Array do
   @impl Access
   def fetch(%Array{} = array, index) when is_integer(index) do
     index = Meal.normalize_index(array, index)
+
     if index >= 0 && index < size(array) do
       {:ok, get(array, index)}
     else
@@ -443,6 +503,7 @@ defmodule Meal.Array do
   @impl Access
   def fetch(%Array{} = array, first..last) do
     array = slice(array, first..last)
+
     if size(array) == 0 do
       :error
     else
@@ -453,6 +514,7 @@ defmodule Meal.Array do
   @impl Access
   def fetch(%Array{} = array, {start, length}) when is_integer(start) and is_integer(length) do
     array = slice(array, start, length)
+
     if size(array) == 0 do
       :error
     else
@@ -481,9 +543,12 @@ defmodule Meal.Array do
   end
 
   @impl Access
-  def get_and_update(%Array{} = array, index, fun) when is_integer(index) and is_function(fun, 1) do
-    result = array[index]
-             |> then(fun)
+  def get_and_update(%Array{} = array, index, fun)
+      when is_integer(index) and is_function(fun, 1) do
+    result =
+      array[index]
+      |> then(fun)
+
     case result do
       :pop -> pop(array, index)
       {cur_value, new_value} -> {cur_value, replace_at(array, index, new_value)}
@@ -492,22 +557,32 @@ defmodule Meal.Array do
 
   @impl Access
   def get_and_update(%Array{} = array, first..last, fun) when is_function(fun, 1) do
-    result = array[first..last]
-             |> then(fun)
+    result =
+      array[first..last]
+      |> then(fun)
+
     case result do
-      :pop -> pop(array, first..last)
-      {cur_value, new_value} -> {cur_value, replace_slice(array, first..last, Meal.enumerable_wrap(new_value))}
+      :pop ->
+        pop(array, first..last)
+
+      {cur_value, new_value} ->
+        {cur_value, replace_slice(array, first..last, Meal.enumerable_wrap(new_value))}
     end
   end
 
   @impl Access
   def get_and_update(%Array{} = array, {start, length}, fun)
       when is_integer(start) and is_integer(length) and is_function(fun, 1) do
-    result = array[{start, length}]
-             |> then(fun)
+    result =
+      array[{start, length}]
+      |> then(fun)
+
     case result do
-      :pop -> pop(array, {start, length})
-      {cur_value, new_value} -> {cur_value, replace_slice(array, start, length, Meal.enumerable_wrap(new_value))}
+      :pop ->
+        pop(array, {start, length})
+
+      {cur_value, new_value} ->
+        {cur_value, replace_slice(array, start, length, Meal.enumerable_wrap(new_value))}
     end
   end
 end

@@ -32,7 +32,7 @@ defmodule Meal do
 
   defmacro continue() do
     quote do
-      throw unquote(@continue_label)
+      throw(unquote(@continue_label))
     end
   end
 
@@ -62,25 +62,25 @@ defmodule Meal do
 
   defmacro break() do
     quote do
-      throw unquote(@break_label)
+      throw(unquote(@break_label))
     end
   end
 
   defmacro break(res) do
     quote do
-      throw {unquote(@break_label), unquote(res)}
+      throw({unquote(@break_label), unquote(res)})
     end
   end
 
   defmacro break(res, if: if_clause) do
     quote do
-      if(unquote(if_clause), do: throw {unquote(@break_label), unquote(res)})
+      if(unquote(if_clause), do: throw({unquote(@break_label), unquote(res)}))
     end
   end
 
   defmacro break(res, unless: unless_clause) do
     quote do
-      Meal.break(unquote(res), if: !(unquote(unless_clause)))
+      Meal.break(unquote(res), if: !unquote(unless_clause))
     end
   end
 
@@ -128,7 +128,7 @@ defmodule Meal do
 
   defmacro until(condition, do: do_clause, else: else_clause) do
     quote do
-      Meal.while(!(unquote(condition)), do: unquote(do_clause), else: unquote(else_clause))
+      Meal.while(!unquote(condition), do: unquote(do_clause), else: unquote(else_clause))
     end
   end
 
@@ -168,11 +168,16 @@ defmodule Meal do
   def flatten(deep_enumerable, level \\ -1, tail \\ []) do
     if enumerable?(deep_enumerable) do
       case level do
-        n when is_integer(n) and n < 0 -> _flatten(deep_enumerable, [])
-        0 -> Enum.to_list(deep_enumerable)
-        n when is_integer(n) and n > 0 -> Enum.reduce(1..n, deep_enumerable, fn _, acc ->
-          _flat_one_level(acc)
-        end)
+        n when is_integer(n) and n < 0 ->
+          _flatten(deep_enumerable, [])
+
+        0 ->
+          Enum.to_list(deep_enumerable)
+
+        n when is_integer(n) and n > 0 ->
+          Enum.reduce(1..n, deep_enumerable, fn _, acc ->
+            _flat_one_level(acc)
+          end)
       end
       |> Enum.concat(enumerable_wrap(tail))
     else
@@ -182,14 +187,18 @@ defmodule Meal do
 
   defp _flatten(deep_enumerable, result_list) do
     case Enum.split(deep_enumerable, 1) do
-      {[e], rest} -> if enumerable?(e) do
-                       _flatten(_flat_one_level(e) ++ rest, result_list)
-                     else
-                       _flatten(rest, [e | result_list])
-                     end
-      {[], []} -> Enum.reverse(result_list)
+      {[e], rest} ->
+        if enumerable?(e) do
+          _flatten(_flat_one_level(e) ++ rest, result_list)
+        else
+          _flatten(rest, [e | result_list])
+        end
+
+      {[], []} ->
+        Enum.reverse(result_list)
     end
   end
+
   defp _flat_one_level(enumerable) do
     Enum.flat_map(enumerable, fn e -> enumerable_wrap(e) end)
   end
@@ -210,9 +219,11 @@ defmodule Meal do
 
   def curry(fun) when is_function(fun) do
     {:arity, arity} = Function.info(fun, :arity)
+
     get_curry_string = fn arity ->
       args_str = "[" <> Enum.map_join(1..arity//1, ",", &("arg" <> to_string(&1))) <> "]"
       apply_str = "apply(fun, #{args_str})"
+
       Enum.reduce(
         arity..1//-1,
         "fn -> #{apply_str} end",
@@ -223,15 +234,17 @@ defmodule Meal do
     end
 
     get_curry_string.(arity)
-    |> Code.eval_string([fun: fun])
+    |> Code.eval_string(fun: fun)
     |> elem(0)
   end
 
   def curry_r(fun) when is_function(fun) do
     {:arity, arity} = Function.info(fun, :arity)
+
     get_curry_string = fn arity ->
       args_str = "[" <> Enum.map_join(1..arity//1, ",", &("arg" <> to_string(&1))) <> "]"
       apply_str = "apply(fun, #{args_str})"
+
       Enum.reduce(
         1..arity//1,
         "fn -> #{apply_str} end",
@@ -242,36 +255,42 @@ defmodule Meal do
     end
 
     get_curry_string.(arity)
-    |> Code.eval_string([fun: fun])
+    |> Code.eval_string(fun: fun)
     |> elem(0)
   end
 
   def partial_apply(fun, args_map) when is_function(fun) and is_map(args_map) do
     {:arity, arity} = Function.info(fun, :arity)
+
     case arity do
-      0 -> fun.()
+      0 ->
+        fun.()
+
       arity ->
-        args_map = Enum.reduce(
-          1..arity,
-          %{args_call_list: []},
-          fn i, acc ->
-            case Map.fetch(args_map, i) do
-              {:ok, arg} -> Map.put(acc, String.to_atom("arg#{i}"), arg)
-              :error -> Map.update(acc, :args_call_list, [], &(["arg#{i}" | &1]))
+        args_map =
+          Enum.reduce(
+            1..arity,
+            %{args_call_list: []},
+            fn i, acc ->
+              case Map.fetch(args_map, i) do
+                {:ok, arg} -> Map.put(acc, String.to_atom("arg#{i}"), arg)
+                :error -> Map.update(acc, :args_call_list, [], &["arg#{i}" | &1])
+              end
             end
-          end
-        )
+          )
 
         args_apply_str = "[" <> Enum.map_join(1..arity//1, ",", &("arg" <> to_string(&1))) <> "]"
 
-        code = case Enum.reverse(args_map.args_call_list)
-                    |> Enum.join(",") do
-          "" -> "apply(fun, #{args_apply_str})"
-          args -> "fn #{args} -> apply(fun, #{args_apply_str}) end"
-        end
+        code =
+          case Enum.reverse(args_map.args_call_list)
+               |> Enum.join(",") do
+            "" -> "apply(fun, #{args_apply_str})"
+            args -> "fn #{args} -> apply(fun, #{args_apply_str}) end"
+          end
 
-        args_map = Map.delete(args_map, :args_call_list)
-                   |> Map.put(:fun, fun)
+        args_map =
+          Map.delete(args_map, :args_call_list)
+          |> Map.put(:fun, fun)
 
         code
         |> Code.eval_string(Map.to_list(args_map))
@@ -300,15 +319,20 @@ defimpl Enumerable, for: Tuple do
   def reduce(_, {:halt, acc}, _fun), do: {:halted, acc}
   def reduce(tuple, {:suspend, acc}, fun), do: {:suspended, acc, &reduce(tuple, &1, fun)}
   def reduce({}, {:cont, acc}, _fun), do: {:done, acc}
-  def reduce(tuple, {:cont, acc}, fun), do: reduce(Tuple.delete_at(tuple, 0), fun.(elem(tuple, 0), acc), fun)
+
+  def reduce(tuple, {:cont, acc}, fun),
+    do: reduce(Tuple.delete_at(tuple, 0), fun.(elem(tuple, 0), acc), fun)
 
   def slice(tuple) do
     size = tuple_size(tuple)
-    slice_fun = fn (start, length) when start >= 0 and start < size and length >= 1 and start + length <= size ->
+
+    slice_fun = fn start, length
+                   when start >= 0 and start < size and length >= 1 and start + length <= size ->
       for i <- start..(start + length - 1), into: [] do
         elem(tuple, i)
       end
     end
+
     {:ok, size, slice_fun}
   end
 end
@@ -316,10 +340,11 @@ end
 defimpl Collectable, for: Tuple do
   def into(tuple) do
     collector_fun = fn
-      (acc, {:cont, elem}) -> Tuple.append(acc, elem)
-      (acc, :done) -> acc
-      (_, :halt) -> :ok
+      acc, {:cont, elem} -> Tuple.append(acc, elem)
+      acc, :done -> acc
+      _, :halt -> :ok
     end
+
     {tuple, collector_fun}
   end
 end

@@ -1,7 +1,7 @@
 defmodule Meal.Stack do
   alias __MODULE__
 
-  defstruct [__list__: []]
+  defstruct __list__: []
 
   def new() do
     %Stack{}
@@ -41,10 +41,11 @@ defmodule Meal.Stack do
   defimpl Collectable do
     def into(%Stack{} = stack) do
       collector_fun = fn
-        (acc, {:cont, elem}) -> Stack.push(acc, elem)
-        (acc, :done) -> acc
-        (_, :halt) -> :ok
+        acc, {:cont, elem} -> Stack.push(acc, elem)
+        acc, :done -> acc
+        _, :halt -> :ok
       end
+
       {stack, collector_fun}
     end
   end

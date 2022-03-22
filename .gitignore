@@ -27,3 +27,5 @@ learn_elixir-*.tar
 
 *.iml
 .idea
+.vscode
+.elixir_ls

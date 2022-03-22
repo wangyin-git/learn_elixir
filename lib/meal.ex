@@ -290,7 +290,7 @@ end
 
 defimpl Enumerable, for: Tuple do
   def count(tuple) do
-    tuple_size(tuple)
+    {:ok, tuple_size(tuple)}
   end
 
   def member?(_tuple, _element) do
@@ -323,4 +323,3 @@ defimpl Collectable, for: Tuple do
     {tuple, collector_fun}
   end
 end
-

@@ -13,6 +13,19 @@ defmodule Meal do
     end
   end
 
+  defmacro block(label, do: do_clause) when is_atom(label) do
+    quote do
+      try do
+        unquote(do_clause)
+      catch
+        unquote(label) -> nil
+        {unquote(label), var} -> var
+        unquote(@break_label) -> nil
+        {unquote(@break_label), var} -> var
+      end
+    end
+  end
+
   defmacro loop(do: do_clause) do
     quote do
       try do
@@ -66,9 +79,21 @@ defmodule Meal do
     end
   end
 
+  defmacro break(label: label) when is_atom(label) do
+    quote do
+      throw(unquote(label))
+    end
+  end
+
   defmacro break(res) do
     quote do
       throw({unquote(@break_label), unquote(res)})
+    end
+  end
+
+  defmacro break(res, label: label) when is_atom(label) do
+    quote do
+      throw({unquote(label), unquote(res)})
     end
   end
 
@@ -78,9 +103,21 @@ defmodule Meal do
     end
   end
 
+  defmacro break(res, if: if_clause, label: label) when is_atom(label) do
+    quote do
+      if(unquote(if_clause), do: throw({unquote(label), unquote(res)}))
+    end
+  end
+
   defmacro break(res, unless: unless_clause) do
     quote do
       Meal.break(unquote(res), if: !unquote(unless_clause))
+    end
+  end
+
+  defmacro break(res, unless: unless_clause, label: label) when is_atom(label) do
+    quote do
+      Meal.break(unquote(res), if: !unquote(unless_clause), label: label)
     end
   end
 
@@ -90,9 +127,21 @@ defmodule Meal do
     end
   end
 
+  defmacro break_if(label, do: do_clause) when is_atom(label) do
+    quote do
+      if(unquote(do_clause), do: Meal.break(label: label))
+    end
+  end
+
   defmacro break_if(clause) do
     quote do
       if(unquote(clause), do: Meal.break())
+    end
+  end
+
+  defmacro break_if(clause, label: label) when is_atom(label) do
+    quote do
+      if(unquote(clause), do: Meal.break(label: label))
     end
   end
 
@@ -102,9 +151,21 @@ defmodule Meal do
     end
   end
 
+  defmacro break_unless(label, do: do_clause) when is_atom(label) do
+    quote do
+      Meal.break_if(!unquote(do_clause), label: label)
+    end
+  end
+
   defmacro break_unless(clause) do
     quote do
       Meal.break_if(!unquote(clause))
+    end
+  end
+
+  defmacro break_unless(clause, label: label) when is_atom(label) do
+    quote do
+      Meal.break_if(!unquote(clause), label: label)
     end
   end
 

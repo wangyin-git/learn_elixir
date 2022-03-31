@@ -1,4 +1,5 @@
 defmodule Meal.Stream do
+  require Meal
   alias Meal.Array
 
   def combination(enumerable, r) when is_integer(r) do
@@ -99,6 +100,18 @@ defmodule Meal.Stream do
     end
   end
 
-  def _permutation_all(n) do
+  defp _permutation_all(n) do
+  end
+
+  def cycle(enumerable, count) when Meal.is_non_neg_integer(count) do
+    if Meal.enumerable?(enumerable) do
+      Stream.unfold(count, fn
+        0 -> nil
+        count -> {enumerable, count - 1}
+      end)
+      |> Stream.flat_map(& &1)
+    else
+      raise "can not cycle on non-enumerable"
+    end
   end
 end

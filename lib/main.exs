@@ -5,4 +5,5 @@ alias Meal.Stack, warn: false
 alias Meal.Stream, warn: false
 alias Meal.Enum, warn: false
 
-Stream.combination(5..1//-1, 2) |> Enum.to_list() |> p()
+
+Enum.rotate(1..50, -2) |> p()

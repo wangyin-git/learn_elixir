@@ -2,12 +2,7 @@ import Meal, warn: false
 alias Meal.Array, warn: false
 alias Meal.String, warn: false
 alias Meal.Stack, warn: false
+alias Meal.Stream, warn: false
+alias Meal.Enum, warn: false
 
-
-Meal.block(:hi) do
-  block do
-    break(123, label: :hi)
-  end
-end
-
-|> p()
+Stream.combination(5..1//-1, 2) |> Enum.to_list() |> p()

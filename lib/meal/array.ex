@@ -53,7 +53,7 @@ defmodule Meal.Array do
   end
 
   def from_enumerable(enumerable, default) do
-    if !Meal.enumerable?(enumerable) do
+    if !Meal.Enum.enumerable?(enumerable) do
       raise "can not create #{__MODULE__} from #{enumerable}"
     end
 
@@ -94,7 +94,7 @@ defmodule Meal.Array do
   end
 
   def get(%Array{} = array, index, default) when is_integer(index) do
-    index = Meal.normalize_index(array, index)
+    index = Meal.Enum.normalize_index(array, index)
 
     if index < 0 || index >= size(array) do
       default
@@ -122,7 +122,7 @@ defmodule Meal.Array do
   end
 
   def set(%Array{} = array, index, value) when is_integer(index) do
-    index = Meal.normalize_index(array, index)
+    index = Meal.Enum.normalize_index(array, index)
 
     :array.set(index, value, array.__array__)
     |> from_erlang_array()
@@ -135,9 +135,9 @@ defmodule Meal.Array do
   def insert_splicing_at(%Array{} = array, index, enumerable) when is_integer(index) do
     index =
       if index < 0 do
-        Meal.normalize_index(array, index) + 1
+        Meal.Enum.normalize_index(array, index) + 1
       else
-        Meal.normalize_index(array, index)
+        Meal.Enum.normalize_index(array, index)
       end
       |> min(size(array))
       |> max(0)
@@ -147,7 +147,7 @@ defmodule Meal.Array do
 
     Enum.concat([
       Enum.slice(array, 0, left_count),
-      Meal.enumerable_wrap(enumerable),
+      Meal.Enum.enumerable_wrap(enumerable),
       Enum.slice(array, left_count, right_count)
     ])
     |> from_list()
@@ -211,8 +211,8 @@ defmodule Meal.Array do
   def pop_slice(%Array{} = array, first..last) do
     size = size(array)
 
-    with first when first >= 0 and first < size <- Meal.normalize_index(array, first),
-         last when first <= last <- Meal.normalize_index(array, last) do
+    with first when first >= 0 and first < size <- Meal.Enum.normalize_index(array, first),
+         last when first <= last <- Meal.Enum.normalize_index(array, last) do
       left_count = Range.size(0..(first - 1)//1)
       right_count = Range.size((last + 1)..(size(array) - 1)//1)
 
@@ -255,14 +255,14 @@ defmodule Meal.Array do
   def replace_slice(%Array{} = array, first..last, enumerable) do
     size = size(array)
 
-    with first when first >= 0 and first < size <- Meal.normalize_index(array, first),
-         last when first <= last <- Meal.normalize_index(array, last) do
+    with first when first >= 0 and first < size <- Meal.Enum.normalize_index(array, first),
+         last when first <= last <- Meal.Enum.normalize_index(array, last) do
       left_count = Range.size(0..(first - 1)//1)
       right_count = Range.size((last + 1)..(size(array) - 1)//1)
 
       Enum.concat([
         Enum.slice(array, 0, left_count),
-        Meal.enumerable_wrap(enumerable),
+        Meal.Enum.enumerable_wrap(enumerable),
         Enum.slice(array, last + 1, right_count)
       ])
       |> from_list()
@@ -304,8 +304,8 @@ defmodule Meal.Array do
   def update_slice(%Array{} = array, first..last, fun) when is_function(fun, 1) do
     size = size(array)
 
-    with first when first >= 0 and first < size <- Meal.normalize_index(array, first),
-         last when first <= last <- Meal.normalize_index(array, last) do
+    with first when first >= 0 and first < size <- Meal.Enum.normalize_index(array, first),
+         last when first <= last <- Meal.Enum.normalize_index(array, last) do
       left_count = Range.size(0..(first - 1)//1)
       right_count = Range.size((last + 1)..(size(array) - 1)//1)
 
@@ -373,7 +373,7 @@ defmodule Meal.Array do
   end
 
   def reset(%Array{} = array, index) when is_integer(index) do
-    index = Meal.normalize_index(array, index)
+    index = Meal.Enum.normalize_index(array, index)
 
     :array.reset(index, array.__array__)
     |> from_erlang_array()
@@ -491,7 +491,7 @@ defmodule Meal.Array do
 
   @impl Access
   def fetch(%Array{} = array, index) when is_integer(index) do
-    index = Meal.normalize_index(array, index)
+    index = Meal.Enum.normalize_index(array, index)
 
     if index >= 0 && index < size(array) do
       {:ok, get(array, index)}
@@ -566,7 +566,7 @@ defmodule Meal.Array do
         pop(array, first..last)
 
       {cur_value, new_value} ->
-        {cur_value, replace_slice(array, first..last, Meal.enumerable_wrap(new_value))}
+        {cur_value, replace_slice(array, first..last, Meal.Enum.enumerable_wrap(new_value))}
     end
   end
 
@@ -582,7 +582,7 @@ defmodule Meal.Array do
         pop(array, {start, length})
 
       {cur_value, new_value} ->
-        {cur_value, replace_slice(array, start, length, Meal.enumerable_wrap(new_value))}
+        {cur_value, replace_slice(array, start, length, Meal.Enum.enumerable_wrap(new_value))}
     end
   end
 end

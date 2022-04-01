@@ -20,7 +20,7 @@ defmodule Meal.String do
     ]
 
   def byte_at(str, pos) when is_binary(str) and is_integer(pos) do
-    pos = Meal.normalize_index(1..byte_size(str)//1, pos)
+    pos = Meal.Enum.normalize_index(1..byte_size(str)//1, pos)
 
     if pos >= 0 && pos < byte_size(str) do
       <<_::binary-size(pos), byte::8, _::binary>> = str
@@ -33,8 +33,8 @@ defmodule Meal.String do
   def byte_slice(str, first..last) when is_binary(str) do
     size = byte_size(str)
 
-    with first when first >= 0 and first < size <- Meal.normalize_index(1..size//1, first),
-         last when first <= last <- Meal.normalize_index(1..size//1, last) do
+    with first when first >= 0 and first < size <- Meal.Enum.normalize_index(1..size//1, first),
+         last when first <= last <- Meal.Enum.normalize_index(1..size//1, last) do
       len = min(size - first, last - first + 1)
       <<_::binary-size(first), bytes::binary-size(len), _::binary>> = str
       bytes
@@ -81,8 +81,8 @@ defmodule Meal.String do
       when is_binary(str) and is_binary(replacement) do
     len = String.length(str)
 
-    with first when first >= 0 and first < len <- Meal.normalize_index(1..len//1, first),
-         last when first <= last <- Meal.normalize_index(1..len//1, last) do
+    with first when first >= 0 and first < len <- Meal.Enum.normalize_index(1..len//1, first),
+         last when first <= last <- Meal.Enum.normalize_index(1..len//1, last) do
       String.slice(str, 0..max(0, first - 1)) <> replacement <> String.slice(str, (last + 1)..-1)
     else
       _ -> str

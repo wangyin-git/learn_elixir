@@ -2,6 +2,8 @@ defmodule Meal.Stream do
   require Meal
   alias Meal.Array
 
+  use Meal.Delegate, to: Stream, except: [chunk: 2, chunk: 3, chunk: 4, filter_map: 3, uniq: 2]
+
   def combination(enumerable, r) when is_integer(r) do
     count = Enum.count(enumerable)
 
@@ -104,7 +106,7 @@ defmodule Meal.Stream do
   end
 
   def cycle(enumerable, count) when Meal.is_non_neg_integer(count) do
-    if Meal.enumerable?(enumerable) do
+    if Meal.Enum.enumerable?(enumerable) do
       Stream.unfold(count, fn
         0 -> nil
         count -> {enumerable, count - 1}

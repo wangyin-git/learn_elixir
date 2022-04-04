@@ -128,6 +128,16 @@ defmodule Meal.Array do
     |> from_erlang_array()
   end
 
+  def values_at(%Array{} = array, list) when is_list(list) do
+    for idx_or_slice <- list, reduce: Array.new() do
+      acc ->
+        case idx_or_slice do
+          first..last -> insert_splicing_at(acc, -1, slice(array, first..last))
+          idx -> insert_at(acc, -1, get(array, idx))
+        end
+    end
+  end
+
   def insert_at(%Array{} = array, index, value) when is_integer(index) do
     insert_splicing_at(array, index, [value])
   end

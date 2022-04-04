@@ -6,4 +6,4 @@ alias Meal.Stream, warn: false
 alias Meal.Enum, warn: false
 
 
-Enum.rotate(1..50, -2) |> p()
+Array.from_enumerable(1..10) |> Array.values_at([1,2,3,-1..-2]) |> p()

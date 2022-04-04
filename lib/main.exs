@@ -6,4 +6,4 @@ alias Meal.Stream, warn: false
 alias Meal.Enum, warn: false
 
 
-Array.from_enumerable(1..10) |> Array.values_at([1,2,3,-1..-2]) |> p()
+%{a: 1, b: 2} |> Enum.values_at([1,2,3, -2..-1]) |> p()

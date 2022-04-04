@@ -203,6 +203,14 @@ defmodule Meal do
     IO.inspect(term, opts)
   end
 
+  def impl_protocol?(element, protocol) do
+    Protocol.assert_protocol!(protocol)
+    case protocol.impl_for(element) do
+      nil -> false
+      _ -> true
+    end
+  end
+
   defguard is_pos_integer(int) when is_integer(int) and int > 0
 
   defguard is_non_neg_integer(int) when is_integer(int) and int >= 0

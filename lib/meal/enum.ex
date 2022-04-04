@@ -13,10 +13,7 @@ defmodule Meal.Enum do
   end
 
   def enumerable?(element) do
-    case Enumerable.impl_for(element) do
-      nil -> false
-      _ -> true
-    end
+    Meal.impl_protocol?(element, Enumerable)
   end
 
   def enumerable_wrap(element) do
@@ -81,6 +78,21 @@ defmodule Meal.Enum do
           count == 0 -> to_list(enumerable)
           count > 0 -> slide(enumerable, 0..(count - 1), -1)
           count < 0 -> slide(enumerable, count..-1, 0)
+        end
+    end
+  end
+
+  def values_at(enumerable, list) when is_list(list) do
+    if !enumerable?(enumerable), do: raise("can not get values on non-enumerable")
+
+    for idx_or_slice <- list, reduce: [] do
+      acc ->
+        case idx_or_slice do
+          first..last ->
+            acc ++ slice(enumerable, first..last)
+
+          idx ->
+            acc ++ slice(enumerable, idx..idx)
         end
     end
   end

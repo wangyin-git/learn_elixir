@@ -83,11 +83,8 @@ defmodule Meal.String do
 
     with first when first >= 0 and first < len <- Meal.Enum.normalize_index(1..len//1, first),
          last when first <= last <- Meal.Enum.normalize_index(1..len//1, last) do
-      if first > 0 do
-        String.slice(str, 0..(first - 1)) <> replacement <> String.slice(str, (last + 1)..-1)
-      else
-        replacement <> String.slice(str, (last + 1)..-1)
-      end
+      left_count = Range.size(0..(first - 1)//1)
+      slice(str, 0, left_count) <> replacement <> slice(str, (last + 1)..-1)
     else
       _ -> str
     end

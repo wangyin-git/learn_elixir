@@ -1,5 +1,6 @@
 defmodule Meal.Enum do
   require Meal
+
   use Meal.Delegate,
     to: Enum,
     except: [chunk: 2, chunk: 3, chunk: 4, filter_map: 3, partition: 2, uniq: 2]

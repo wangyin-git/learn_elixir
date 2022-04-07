@@ -116,4 +116,24 @@ defmodule Meal.Stream do
       raise "can not cycle on non-enumerable"
     end
   end
+
+  def max_n(enumerable, n, sorter \\ &>=/2) when Meal.is_non_neg_integer(n) do
+    Enum.sort(enumerable, sorter)
+    |> take(n)
+  end
+
+  def max_n_by(enumerable, n, fun, sorter \\ &>=/2) when Meal.is_non_neg_integer(n) do
+    Enum.sort_by(enumerable, fun, sorter)
+    |> take(n)
+  end
+
+  def min_n(enumerable, n, sorter \\ &<=/2) when Meal.is_non_neg_integer(n) do
+    Enum.sort(enumerable, sorter)
+    |> take(n)
+  end
+
+  def min_n_by(enumerable, n, fun, sorter \\ &<=/2) when Meal.is_non_neg_integer(n) do
+    Enum.sort_by(enumerable, fun, sorter)
+    |> take(n)
+  end
 end

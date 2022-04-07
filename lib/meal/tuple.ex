@@ -16,3 +16,45 @@ defmodule Meal.Tuple do
     super(tuple, index, value)
   end
 end
+
+defimpl Enumerable, for: Tuple do
+  def count(tuple) do
+    {:ok, tuple_size(tuple)}
+  end
+
+  def member?(_tuple, _element) do
+    {:error, __MODULE__}
+  end
+
+  def reduce(_, {:halt, acc}, _fun), do: {:halted, acc}
+  def reduce(tuple, {:suspend, acc}, fun), do: {:suspended, acc, &reduce(tuple, &1, fun)}
+  def reduce({}, {:cont, acc}, _fun), do: {:done, acc}
+
+  def reduce(tuple, {:cont, acc}, fun),
+    do: reduce(Tuple.delete_at(tuple, 0), fun.(elem(tuple, 0), acc), fun)
+
+  def slice(tuple) do
+    size = tuple_size(tuple)
+
+    slice_fun = fn start, length
+                   when start >= 0 and start < size and length >= 1 and start + length <= size ->
+      for i <- start..(start + length - 1), into: [] do
+        elem(tuple, i)
+      end
+    end
+
+    {:ok, size, slice_fun}
+  end
+end
+
+defimpl Collectable, for: Tuple do
+  def into(tuple) do
+    collector_fun = fn
+      acc, {:cont, elem} -> Tuple.append(acc, elem)
+      acc, :done -> acc
+      _, :halt -> :ok
+    end
+
+    {tuple, collector_fun}
+  end
+end

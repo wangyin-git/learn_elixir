@@ -1,4 +1,5 @@
 defmodule Meal.Enum do
+  require Meal
   use Meal.Delegate,
     to: Enum,
     except: [chunk: 2, chunk: 3, chunk: 4, filter_map: 3, partition: 2, uniq: 2]
@@ -95,5 +96,25 @@ defmodule Meal.Enum do
             acc ++ slice(enumerable, idx..idx)
         end
     end
+  end
+
+  def max_n(enumerable, n, sorter \\ &>=/2) when Meal.is_non_neg_integer(n) do
+    sort(enumerable, sorter)
+    |> take(n)
+  end
+
+  def max_n_by(enumerable, n, fun, sorter \\ &>=/2) when Meal.is_non_neg_integer(n) do
+    sort_by(enumerable, fun, sorter)
+    |> take(n)
+  end
+
+  def min_n(enumerable, n, sorter \\ &<=/2) when Meal.is_non_neg_integer(n) do
+    sort(enumerable, sorter)
+    |> take(n)
+  end
+
+  def min_n_by(enumerable, n, fun, sorter \\ &<=/2) when Meal.is_non_neg_integer(n) do
+    sort_by(enumerable, fun, sorter)
+    |> take(n)
   end
 end

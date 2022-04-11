@@ -1,38 +1,49 @@
 defmodule Meal.Parallel do
   def map(enumerable, fun) do
     enumerable
-    |> Enum.map(&Task.async(fn -> fun.(&1) end))
-    |> Task.await_many(:infinity)
+    |> Task.async_stream(fun, timeout: :infinity)
+    |> Enum.map(fn {:ok, v} -> v end)
   end
 
   def map_every(enumerable, nth, fun) do
-    enumerable
-    |> Enum.map_every(
-      nth,
-      &Task.async(fn -> fun.(&1) end)
-    )
-    |> Enum.map_every(nth, &Task.await(&1, :infinity))
+    mapped_iter =
+      enumerable
+      |> Stream.take_every(nth)
+      |> Task.async_stream(fun, timeout: :infinity)
+      |> Stream.map(fn {:ok, v} -> v end)
+      |> Meal.Iterator.new()
+
+    result =
+      enumerable
+      |> Enum.map_every(nth, fn _ ->
+        {:ok, v} = Meal.Iterator.next(mapped_iter)
+        v
+      end)
+
+    Meal.Iterator.stop(mapped_iter)
+
+    result
   end
 
   def map_intersperse(enumerable, separator, fun) do
     enumerable
-    |> Enum.map(&Task.async(fn -> fun.(&1) end))
-    |> Enum.map_intersperse(
-      separator,
-      &Task.await(&1, :infinity)
-    )
+    |> Task.async_stream(fun, timeout: :infinity)
+    |> Stream.map(fn {:ok, v} -> v end)
+    |> Enum.map_intersperse(separator, & &1)
   end
 
   def map_join(enumerable, joiner \\ "", fun) do
     enumerable
-    |> Enum.map(&Task.async(fn -> fun.(&1) end))
-    |> Enum.map_join(joiner, &Task.await(&1, :infinity))
+    |> Task.async_stream(fun, timeout: :infinity)
+    |> Stream.map(fn {:ok, v} -> v end)
+    |> Enum.map_join(joiner, & &1)
   end
 
   def flat_map(enumerable, fun) do
     enumerable
-    |> Enum.map(&Task.async(fn -> fun.(&1) end))
-    |> Enum.flat_map(&Task.await(&1, :infinity))
+    |> Task.async_stream(fun, timeout: :infinity)
+    |> Stream.map(fn {:ok, v} -> v end)
+    |> Enum.flat_map(& &1)
   end
 
   def chunk_by(enumerable, fun) do

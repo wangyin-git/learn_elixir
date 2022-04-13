@@ -2,7 +2,7 @@ defmodule Meal.Parallel do
   def map(enumerable, fun) do
     enumerable
     |> Task.async_stream(fun, timeout: :infinity)
-    |> Enum.map(fn {:ok, v} -> v end)
+    |> Stream.map(fn {:ok, v} -> v end)
   end
 
   def map_every(enumerable, nth, fun) do
@@ -43,68 +43,68 @@ defmodule Meal.Parallel do
     enumerable
     |> Task.async_stream(fun, timeout: :infinity)
     |> Stream.map(fn {:ok, v} -> v end)
-    |> Enum.flat_map(& &1)
+    |> Stream.flat_map(& &1)
   end
 
   def chunk_by(enumerable, fun) do
     enumerable
-    |> Enum.map(&Task.async(fn -> {fun.(&1), &1} end))
-    |> Enum.reduce(
-      {[], [], []},
-      fn
-        task, {[], [], []} ->
-          {result, element} = Task.await(task, :infinity)
-          {[result], [element], []}
-
-        task, {[last_result], chunk, chunks} ->
-          {result, element} = Task.await(task, :infinity)
-
-          if last_result === result do
-            {[last_result], [element | chunk], chunks}
-          else
-            {[result], [element], [Enum.reverse(chunk) | chunks]}
-          end
-      end
-    )
-    |> then(fn
-      {_, [], chunks} -> chunks
-      {_, chunk, chunks} -> [Enum.reverse(chunk) | chunks]
-    end)
-    |> Enum.reverse()
+    |> Task.async_stream(&{fun.(&1), &1}, timeout: :infinity)
+    |> Stream.chunk_by(fn {:ok, {value, _}} -> value end)
+    |> Stream.map(fn chunk -> Enum.map(chunk, fn {:ok, {_, element}} -> element end) end)
   end
 
   def each(enumerable, fun) do
-    map(enumerable, fun)
+    enumerable
+    |> Task.async_stream(fun, timeout: :infinity)
+    |> Stream.run()
+
     :ok
   end
 
   def filter(enumerable, fun) do
     enumerable
-    |> Enum.map(&Task.async(fn -> {fun.(&1), &1} end))
-    |> Enum.reduce(
-      [],
-      fn task, acc ->
-        {result, element} = Task.await(task, :infinity)
-        if result, do: [element | acc], else: acc
-      end
-    )
-    |> Enum.reverse()
+    |> Task.async_stream(&{fun.(&1), &1}, timeout: :infinity)
+    |> Stream.filter(fn {:ok, {result, _}} -> result end)
+    |> Stream.map(fn {:ok, {_, element}} -> element end)
   end
 
   def reject(enumerable, fun) do
-    enumerable
-    |> Enum.map(&Task.async(fn -> {fun.(&1), &1} end))
-    |> Enum.reduce(
-      [],
-      fn task, acc ->
-        {result, element} = Task.await(task, :infinity)
-        if !result, do: [element | acc], else: acc
-      end
-    )
-    |> Enum.reverse()
+    filter(enumerable, &(!fun.(&1)))
   end
 
   def find(enumerable, default \\ nil, fun) do
+    enumerable
+    |> Stream.chunk_every(System.schedulers_online())
+    |> Enum.reduce_while(default, fn chunk, acc ->
+      case _find(chunk, fun) do
+        {:ok, element} -> {:halt, element}
+        :error -> {:cont, acc}
+      end
+    end)
+  end
+
+  def find_value(enumerable, default \\ nil, fun) do
+    enumerable
+    |> Stream.chunk_every(System.schedulers_online())
+    |> Enum.reduce_while(default, fn chunk, acc ->
+      case _find_value(chunk, fun) do
+        {:ok, result} -> {:halt, result}
+        :error -> {:cont, acc}
+      end
+    end)
+  end
+
+  def find_index(enumerable, fun) do
+    enumerable
+    |> Stream.with_index()
+    |> find(nil, fn {element, _} -> fun.(element) end)
+    |> then(fn
+      nil -> nil
+      {_, index} -> index
+    end)
+  end
+
+  defp _find(enumerable, fun) do
     enumerable
     |> Enum.map(&Task.async(fn -> {fun.(&1), &1} end))
     |> Enum.reduce(
@@ -124,34 +124,10 @@ defmodule Meal.Parallel do
           end
       end
     )
-    |> Enum.at(0, default)
+    |> Enum.fetch(0)
   end
 
-  def find_index(enumerable, fun) do
-    enumerable
-    |> Enum.map(&Task.async(fn -> fun.(&1) end))
-    |> Stream.with_index()
-    |> Enum.reduce(
-      [],
-      fn
-        {task, _}, [index] ->
-          Task.shutdown(task, :brutal_kill)
-          [index]
-
-        {task, index}, [] ->
-          result = Task.await(task, :infinity)
-
-          if result do
-            [index]
-          else
-            []
-          end
-      end
-    )
-    |> Enum.at(0)
-  end
-
-  def find_value(enumerable, default \\ nil, fun) do
+  defp _find_value(enumerable, fun) do
     enumerable
     |> Enum.map(&Task.async(fn -> fun.(&1) end))
     |> Enum.reduce(
@@ -171,16 +147,15 @@ defmodule Meal.Parallel do
           end
       end
     )
-    |> Enum.at(0, default)
+    |> Enum.fetch(0)
   end
 
   def frequencies_by(enumerable, fun) do
     enumerable
-    |> Enum.map(&Task.async(fn -> fun.(&1) end))
+    |> Task.async_stream(fun, timeout: :infinity)
     |> Enum.reduce(
       %{},
-      fn task, acc ->
-        result = Task.await(task, :infinity)
+      fn {:ok, result}, acc ->
         Map.update(acc, result, 1, &(&1 + 1))
       end
     )
@@ -188,11 +163,10 @@ defmodule Meal.Parallel do
 
   def group_by(enumerable, key_fun, value_fun \\ fn x -> x end) do
     enumerable
-    |> Enum.map(&Task.async(fn -> {key_fun.(&1), value_fun.(&1)} end))
+    |> Task.async_stream(&{key_fun.(&1), value_fun.(&1)}, timeout: :infinity)
     |> Enum.reduce(
       %{},
-      fn task, acc ->
-        {key, value} = Task.await(task, :infinity)
+      fn {:ok, key, value}, acc ->
         Map.update(acc, key, [value], &List.insert_at(&1, -1, value))
       end
     )
@@ -203,14 +177,15 @@ defmodule Meal.Parallel do
       empty_fallback.()
     else
       enumerable
-      |> Enum.map(&{Task.async(fn -> fun.(&1) end), &1})
+      |> Task.async_stream(&{fun.(&1), &1}, timeout: :infinity)
       |> Enum.max_by(
-        fn {task, _} ->
-          Task.await(task, :infinity)
+        fn {:ok, {by, _}} ->
+          by
         end,
         sorter,
         empty_fallback
       )
+      |> elem(1)
       |> elem(1)
     end
   end
@@ -220,14 +195,15 @@ defmodule Meal.Parallel do
       empty_fallback.()
     else
       enumerable
-      |> Enum.map(&{Task.async(fn -> fun.(&1) end), &1})
+      |> Task.async_stream(&{fun.(&1), &1}, timeout: :infinity)
       |> Enum.min_by(
-        fn {task, _} ->
-          Task.await(task, :infinity)
+        fn {:ok, {by, _}} ->
+          by
         end,
         sorter,
         empty_fallback
       )
+      |> elem(1)
       |> elem(1)
     end
   end
@@ -245,12 +221,12 @@ defmodule Meal.Parallel do
         empty_fallback.()
       end
     else
-      {{_, min}, {_, max}} =
+      {{:ok, {_, min}}, {:ok, {_, max}}} =
         enumerable
-        |> Enum.map(&{Task.async(fn -> fun.(&1) end), &1})
+        |> Task.async_stream(&{fun.(&1), &1}, timeout: :infinity)
         |> Enum.min_max_by(
-          fn {task, _} ->
-            Task.await(task, :infinity)
+          fn {:ok, {by, _}} ->
+            by
           end,
           sorter_or_empty_fallback,
           empty_fallback
@@ -265,24 +241,39 @@ defmodule Meal.Parallel do
       []
     else
       enumerable
-      |> Enum.map(&{Task.async(fn -> fun.(&1) end), &1})
+      |> Task.async_stream(&{fun.(&1), &1}, timeout: :infinity)
       |> Enum.sort_by(
-        fn {task, _} ->
-          Task.await(task, :infinity)
+        fn {:ok, {by, _}} ->
+          by
         end,
         sorter
       )
-      |> Enum.map(&elem(&1, 1))
+      |> Enum.map(fn {:ok, {_, element}} -> element end)
     end
   end
 
   def split_while(enumerable, fun) do
     enumerable
+    |> Stream.chunk_every(System.schedulers_online())
+    |> Enum.reduce([[], []], fn
+      chunk, [left_acc, []] ->
+        case _split_while(chunk, fun) do
+          [left_split, []] -> [left_acc ++ left_split, []]
+          [left_split, right_split] -> [left_acc ++ left_split, right_split]
+        end
+
+      chunk, [left_acc, right_acc] ->
+        [left_acc, right_acc ++ chunk]
+    end)
+  end
+
+  defp _split_while(enumerable, fun) do
+    enumerable
     |> Enum.map(&{Task.async(fn -> fun.(&1) end), &1})
     |> Enum.reduce([[], []], fn
       {task, e}, [left_split, []] ->
         result = Task.await(task, :infinity)
-        if result, do: [[e | left_split], []], else: [left_split, [result]]
+        if result, do: [[e | left_split], []], else: [left_split, [e]]
 
       {task, e}, [left_split, right_split] ->
         Task.shutdown(task, :brutal_kill)
@@ -295,10 +286,8 @@ defmodule Meal.Parallel do
 
   def split_with(enumerable, fun) do
     enumerable
-    |> Enum.map(&{Task.async(fn -> fun.(&1) end), &1})
-    |> Enum.reduce([[], []], fn {task, e}, [truthy_split, falsy_split] ->
-      result = Task.await(task, :infinity)
-
+    |> Task.async_stream(&{fun.(&1), &1}, timeout: :infinity)
+    |> Enum.reduce([[], []], fn {:ok, {result, e}}, [truthy_split, falsy_split] ->
       if result do
         [[e | truthy_split], falsy_split]
       else
@@ -315,26 +304,22 @@ defmodule Meal.Parallel do
       []
     else
       enumerable
-      |> Enum.map(&{Task.async(fn -> fun.(&1) end), &1})
-      |> Enum.uniq_by(fn {task, _} ->
-        Task.await(task, :infinity)
+      |> Task.async_stream(&{fun.(&1), &1}, timeout: :infinity)
+      |> Stream.uniq_by(fn {:ok, {by, _}} ->
+        by
       end)
-      |> Enum.map(&elem(&1, 1))
+      |> Stream.map(fn {:ok, {_, element}} -> element end)
     end
   end
 
   def zip_with(enumerables, fun) do
     enumerables
-    |> Enum.zip_with(&Task.async(fn -> fun.(&1) end))
-    |> Enum.map(&Task.await(&1, :infinity))
+    |> Stream.zip()
+    |> Task.async_stream(fun, timeout: :infinity)
   end
 
   def zip_with(enumerable1, enumerable2, fun) do
-    Enum.zip_with(
-      enumerable1,
-      enumerable2,
-      &Task.async(fn -> fun.(&1, &2) end)
-    )
-    |> Enum.map(&Task.await(&1, :infinity))
+    Stream.zip(enumerable1, enumerable2)
+    |> Task.async_stream(fun, timeout: :infinity)
   end
 end

@@ -6,7 +6,7 @@ defmodule Meal.Parallel do
   end
 
   def map_every(enumerable, 0, fun), do: Stream.map_every(enumerable, 0, fun)
-  def map_every(enumerable, nth, fun) when is_integer(nth) and nth >= 0 do
+  def map_every(enumerable, nth, fun) when is_integer(nth) and nth > 0 do
     enumerable
     |> Stream.with_index()
     |> Task.async_stream(

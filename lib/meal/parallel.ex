@@ -189,6 +189,9 @@ defmodule Meal.Parallel do
         Task.shutdown(task, :brutal_kill)
         []
 
+      {_, {:exit, _}}, [] ->
+        []
+
       {_, {:ok, {result, element}}}, [] ->
         if result, do: [element], else: []
     end)
@@ -208,6 +211,9 @@ defmodule Meal.Parallel do
 
       {task, nil}, [] ->
         Task.shutdown(task, :brutal_kill)
+        []
+
+      {_, {:exit, _}}, [] ->
         []
 
       {_, {:ok, value}}, [] ->

@@ -412,8 +412,10 @@ defmodule Meal.Parallel do
     end)
   end
 
-  def split_with(enumerable, fun, max_concurrency \\ System.schedulers_online()) do
-    opts = [timeout: :infinity, ordered: false, max_concurrency: max_concurrency]
+  def split_with(enumerable, fun, opts \\ []) do
+    opts =
+      Keyword.validate!(opts, max_concurrency: System.schedulers_online(), ordered: true)
+      |> Keyword.put(:timeout, :infinity)
 
     enumerable
     |> Task.async_stream(&{fun.(&1), &1}, opts)
@@ -429,8 +431,10 @@ defmodule Meal.Parallel do
     end)
   end
 
-  def uniq_by(enumerable, fun, max_concurrency \\ System.schedulers_online()) do
-    opts = [timeout: :infinity, max_concurrency: max_concurrency]
+  def uniq_by(enumerable, fun, opts \\ []) do
+    opts =
+      Keyword.validate!(opts, max_concurrency: System.schedulers_online(), ordered: true)
+      |> Keyword.put(:timeout, :infinity)
 
     if Enum.empty?(enumerable) do
       []

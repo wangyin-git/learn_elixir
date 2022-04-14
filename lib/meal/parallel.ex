@@ -135,7 +135,7 @@ defmodule Meal.Parallel do
   def find(enumerable, default \\ nil, fun, opts \\ []) do
     opts = Keyword.validate!(opts, [:timeout, max_concurrency: System.schedulers_online()])
     max_concurrency = opts[:max_concurrency]
-    opts = Keyword.take(opts, [:timeout])
+    opts = Keyword.drop(opts, [:max_concurrency])
 
     enumerable
     |> Stream.chunk_every(max_concurrency)
@@ -150,7 +150,7 @@ defmodule Meal.Parallel do
   def find_value(enumerable, default \\ nil, fun, opts \\ []) do
     opts = Keyword.validate!(opts, [:timeout, max_concurrency: System.schedulers_online()])
     max_concurrency = opts[:max_concurrency]
-    opts = Keyword.take(opts, [:timeout])
+    opts = Keyword.drop(opts, [:max_concurrency])
 
     enumerable
     |> Stream.chunk_every(max_concurrency)
@@ -176,10 +176,11 @@ defmodule Meal.Parallel do
 
   defp _find(enumerable, fun, opts) do
     opts = Keyword.validate!(opts, timeout: :infinity)
+    timeout = opts[:timeout]
 
     enumerable
     |> Enum.map(&Task.async(fn -> {fun.(&1), &1} end))
-    |> Task.yield_many(opts[:timeout])
+    |> Task.yield_many(timeout)
     |> Enum.reduce([], fn
       {task, _}, [result] ->
         Task.shutdown(task, :brutal_kill)
@@ -200,10 +201,11 @@ defmodule Meal.Parallel do
 
   defp _find_value(enumerable, fun, opts) do
     opts = Keyword.validate!(opts, timeout: :infinity)
+    timeout = opts[:timeout]
 
     enumerable
     |> Enum.map(&Task.async(fn -> fun.(&1) end))
-    |> Task.yield_many(opts[:timeout])
+    |> Task.yield_many(timeout)
     |> Enum.reduce([], fn
       {task, _}, [value] ->
         Task.shutdown(task, :brutal_kill)

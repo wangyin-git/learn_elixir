@@ -5,24 +5,21 @@ defmodule Meal.Parallel do
     |> Stream.map(fn {:ok, v} -> v end)
   end
 
-  def map_every(enumerable, nth, fun) do
-    mapped_iter =
-      enumerable
-      |> Stream.take_every(nth)
-      |> Task.async_stream(fun, timeout: :infinity)
-      |> Stream.map(fn {:ok, v} -> v end)
-      |> Meal.Iterator.new()
-
-    result =
-      enumerable
-      |> Enum.map_every(nth, fn _ ->
-        {:ok, v} = Meal.Iterator.next(mapped_iter)
-        v
-      end)
-
-    Meal.Iterator.stop(mapped_iter)
-
-    result
+  def map_every(enumerable, 0, fun), do: Stream.map_every(enumerable, 0, fun)
+  def map_every(enumerable, nth, fun) when is_integer(nth) and nth >= 0 do
+    enumerable
+    |> Stream.with_index()
+    |> Task.async_stream(
+      fn {element, index} ->
+        if rem(index, nth) == 0 do
+          fun.(element)
+        else
+          element
+        end
+      end,
+      timeout: :infinity
+    )
+    |> Stream.map(&elem(&1, 1))
   end
 
   def map_intersperse(enumerable, separator, fun) do
@@ -88,7 +85,7 @@ defmodule Meal.Parallel do
     |> Stream.chunk_every(System.schedulers_online())
     |> Enum.reduce_while(default, fn chunk, acc ->
       case _find_value(chunk, fun) do
-        {:ok, result} -> {:halt, result}
+        {:ok, value} -> {:halt, value}
         :error -> {:cont, acc}
       end
     end)
@@ -133,15 +130,15 @@ defmodule Meal.Parallel do
     |> Enum.reduce(
       [],
       fn
-        task, [result] ->
+        task, [value] ->
           Task.shutdown(task, :brutal_kill)
-          [result]
+          [value]
 
         task, [] ->
-          result = Task.await(task, :infinity)
+          value = Task.await(task, :infinity)
 
-          if result do
-            [result]
+          if value do
+            [value]
           else
             []
           end

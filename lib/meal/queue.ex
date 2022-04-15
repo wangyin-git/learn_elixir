@@ -124,7 +124,7 @@ defmodule Meal.Queue do
     |> from_erlang_queue()
   end
 
-  def splite(%Queue{__queue__: queue}, n) when Meal.is_non_neg_integer(n) do
+  def split(%Queue{__queue__: queue}, n) when Meal.is_non_neg_integer(n) do
     try do
       :queue.split(n, queue)
       |> then(fn {q1, q2} -> {from_erlang_queue(q1), from_erlang_queue(q2)} end)

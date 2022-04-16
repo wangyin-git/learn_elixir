@@ -132,96 +132,65 @@ defmodule Meal.Parallel do
     filter(enumerable, &(!fun.(&1)), opts)
   end
 
-  def find(enumerable, default \\ nil, fun, opts \\ []) do
-    opts = Keyword.validate!(opts, [:timeout, max_concurrency: System.schedulers_online()])
-    max_concurrency = opts[:max_concurrency]
-    opts = Keyword.drop(opts, [:max_concurrency])
+  def find(enumerable, default \\ nil, fun, opts \\ []) when is_function(fun, 1) do
+    opts =
+      Keyword.put_new(opts, :timeout, :infinity)
+      |> Keyword.put_new(:on_timeout, :kill_task)
 
-    enumerable
-    |> Stream.chunk_every(max_concurrency)
-    |> Enum.reduce_while(default, fn chunk, acc ->
-      case _find(chunk, fun, opts) do
-        {:ok, element} -> {:halt, element}
-        :error -> {:cont, acc}
-      end
+    Task.async(fn ->
+      enumerable
+      |> Task.async_stream(&{fun.(&1), &1}, opts)
+      |> Enum.find(:not_found, fn
+        {:ok, {value, _}} -> value
+        _ -> false
+      end)
+      |> then(fn
+        :not_found -> default
+        {:ok, {_, element}} -> element
+      end)
     end)
+    |> Task.await(:infinity)
   end
 
-  def find_value(enumerable, default \\ nil, fun, opts \\ []) do
-    opts = Keyword.validate!(opts, [:timeout, max_concurrency: System.schedulers_online()])
-    max_concurrency = opts[:max_concurrency]
-    opts = Keyword.drop(opts, [:max_concurrency])
+  def find_value(enumerable, default \\ nil, fun, opts \\ []) when is_function(fun, 1) do
+    opts =
+      Keyword.put_new(opts, :timeout, :infinity)
+      |> Keyword.put_new(:on_timeout, :kill_task)
 
-    enumerable
-    |> Stream.chunk_every(max_concurrency)
-    |> Enum.reduce_while(default, fn chunk, acc ->
-      case _find_value(chunk, fun, opts) do
-        {:ok, value} -> {:halt, value}
-        :error -> {:cont, acc}
-      end
+    Task.async(fn ->
+      enumerable
+      |> Task.async_stream(&{fun.(&1), &1}, opts)
+      |> Enum.find_value(:not_found, fn
+        {:ok, {value, _}} -> value
+        _ -> false
+      end)
+      |> then(fn
+        :not_found -> default
+        value -> value
+      end)
     end)
+    |> Task.await(:infinity)
   end
 
-  def find_index(enumerable, fun, opts \\ []) do
-    opts = Keyword.validate!(opts, [:timeout, max_concurrency: System.schedulers_online()])
-
-    enumerable
-    |> Stream.with_index()
-    |> find(nil, fn {element, _} -> fun.(element) end, opts)
-    |> then(fn
-      nil -> nil
-      {_, index} -> index
+  def find_index(enumerable, fun, opts \\ []) when is_function(fun, 1) do
+    opts =
+      Keyword.put_new(opts, :timeout, :infinity)
+      |> Keyword.put_new(:on_timeout, :kill_task)
+      
+    Task.async(fn ->
+      enumerable
+      |> Stream.with_index()
+      |> Task.async_stream(fn {element, index} -> {fun.(element), index} end, opts)
+      |> Enum.find(:not_found, fn
+        {:ok, {value, _}} -> value
+        _ -> false
+      end)
+      |> then(fn
+        :not_found -> nil
+        {:ok, {_, index}} -> index
+      end)
     end)
-  end
-
-  defp _find(enumerable, fun, opts) do
-    opts = Keyword.validate!(opts, timeout: :infinity)
-    timeout = opts[:timeout]
-
-    enumerable
-    |> Enum.map(&Task.async(fn -> {fun.(&1), &1} end))
-    |> Task.yield_many(timeout)
-    |> Enum.reduce([], fn
-      {task, _}, [result] ->
-        Task.shutdown(task, :brutal_kill)
-        [result]
-
-      {task, nil}, [] ->
-        Task.shutdown(task, :brutal_kill)
-        []
-
-      {_, {:exit, _}}, [] ->
-        []
-
-      {_, {:ok, {result, element}}}, [] ->
-        if result, do: [element], else: []
-    end)
-    |> Enum.fetch(0)
-  end
-
-  defp _find_value(enumerable, fun, opts) do
-    opts = Keyword.validate!(opts, timeout: :infinity)
-    timeout = opts[:timeout]
-
-    enumerable
-    |> Enum.map(&Task.async(fn -> fun.(&1) end))
-    |> Task.yield_many(timeout)
-    |> Enum.reduce([], fn
-      {task, _}, [value] ->
-        Task.shutdown(task, :brutal_kill)
-        [value]
-
-      {task, nil}, [] ->
-        Task.shutdown(task, :brutal_kill)
-        []
-
-      {_, {:exit, _}}, [] ->
-        []
-
-      {_, {:ok, value}}, [] ->
-        if value, do: [value], else: []
-    end)
-    |> Enum.fetch(0)
+    |> Task.await(:infinity)
   end
 
   def frequencies_by(enumerable, fun, opts \\ []) do

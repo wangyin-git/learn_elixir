@@ -137,6 +137,14 @@ defmodule Meal.Queue do
     :queue.to_list(queue)
   end
 
+  defimpl Inspect do
+    import Inspect.Algebra
+
+    def inspect(%Queue{} = queue, opts) do
+      concat(["##{@for}", to_doc(Queue.to_list(queue), opts)])
+    end
+  end
+
   defimpl Enumerable do
     def count(_queue) do
       {:error, __MODULE__}
@@ -180,14 +188,6 @@ defmodule Meal.Queue do
       end
 
       {queue, collector_fun}
-    end
-  end
-
-  defimpl Inspect do
-    import Inspect.Algebra
-
-    def inspect(%Queue{} = queue, opts) do
-      concat(["##{@for}", to_doc(Queue.to_list(queue), opts)])
     end
   end
 end

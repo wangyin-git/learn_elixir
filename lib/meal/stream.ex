@@ -19,7 +19,7 @@ defmodule Meal.Stream do
       r == 0 ->
         Stream.concat([[]], [])
 
-      r > 0 && r <= n ->
+      r > 0 ->
         start_comb = Array.from_enumerable(0..(r - 1))
         end_comb = Array.from_enumerable((n - r)..(n - 1))
 
@@ -68,6 +68,9 @@ defmodule Meal.Stream do
       r == 0 ->
         Stream.concat([[]], [])
 
+      n == 0 ->
+        Stream.concat([])
+
       r > 0 ->
         start_comb = Array.from_list(List.duplicate(0, r))
         end_comb = Array.from_enumerable(List.duplicate(n - 1, r))
@@ -102,9 +105,87 @@ defmodule Meal.Stream do
     end
   end
 
-  defp _permutation_all(n) do
+  def permutation(enumerable, r) when is_integer(r) do
+    count = Enum.count(enumerable)
+
+    _permutation(count, r)
+    |> Stream.map(fn perm -> Enum.map(perm, &Enum.at(enumerable, &1)) end)
   end
 
+  defp _permutation(n, r) do
+    cond do
+      r < 0 || r > n ->
+        Stream.concat([])
+
+      r == 0 ->
+        Stream.concat([[]], [])
+
+      r == 1 ->
+        Stream.map(0..(n - 1), fn e -> [e] end)
+
+      r > 1 ->
+        Enum.reduce(
+          2..(r - 1)//1,
+          _no_repeat_product(Stream.map(0..(n - 1), &[&1]), 0..(n - 1)),
+          fn _, acc ->
+            _no_repeat_product(acc, 0..(n - 1))
+          end
+        )
+    end
+  end
+
+  defp _no_repeat_product(enumerable1, enumerable2) do
+    Stream.transform(enumerable1, enumerable2, fn list, acc ->
+      {Stream.flat_map(acc, fn e2 ->
+         Enum.reduce_while(list, [], fn e, acc ->
+           if e === e2 do
+             {:halt, []}
+           else
+             {:cont, [e | acc]}
+           end
+         end)
+         |> then(fn
+           [] -> []
+           list -> [Enum.reverse([e2 | list])]
+         end)
+       end), acc}
+    end)
+  end
+
+  def repeated_permutation(enumerable, r) when is_integer(r) do
+    if Meal.Enum.enumerable?(enumerable) do
+      cond do
+        r < 0 ->
+          Stream.concat([])
+
+        r == 0 ->
+          Stream.concat([[]], [])
+
+        Enum.empty?(enumerable) ->
+          Stream.concat([])
+
+        r == 1 ->
+          Stream.map(enumerable, fn e -> [e] end)
+
+        r > 1 ->
+          Enum.reduce(2..(r - 1)//1, cartesian_product(enumerable, enumerable), fn _, acc ->
+            cartesian_product(acc, enumerable)
+            |> Stream.map(&List.flatten(&1))
+          end)
+      end
+    else
+      raise "can not get repeated permutation from non-enumerable"
+    end
+  end
+
+  def cartesian_product(enumerable1, enumerable2) do
+    Stream.transform(enumerable1, enumerable2, fn e1, acc ->
+      {Stream.map(acc, fn e2 -> [e1, e2] end), acc}
+    end)
+  end
+
+  @spec cycle(any, non_neg_integer) ::
+          (any, any -> :badarg | {:halted, any} | {:suspended, any, (any -> any)})
   def cycle(enumerable, count) when Meal.is_non_neg_integer(count) do
     if Meal.Enum.enumerable?(enumerable) do
       Stream.unfold(count, fn

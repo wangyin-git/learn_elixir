@@ -9,6 +9,5 @@ alias Meal.Tuple, warn: false
 alias Meal.Parallel, warn: false
 alias Meal.Queue, warn: false
 
-#Parallel.find_any
 
-Queue.from_enumerable(1..10) |> p()
+Stream.permutation([1,2,3,4], 3) |> Enum.to_list() |> p()

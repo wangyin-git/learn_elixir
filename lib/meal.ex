@@ -205,6 +205,7 @@ defmodule Meal do
 
   def impl_protocol?(element, protocol) do
     Protocol.assert_protocol!(protocol)
+
     case protocol.impl_for(element) do
       nil -> false
       _ -> true

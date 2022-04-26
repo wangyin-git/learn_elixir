@@ -81,7 +81,7 @@ defmodule Meal.Stream do
 
       r > 0 ->
         start_comb = Array.from_list(List.duplicate(0, r))
-        end_comb = Array.from_enumerable(List.duplicate(n - 1, r))
+        end_comb = Array.from_list(List.duplicate(n - 1, r))
 
         Stream.unfold(
           :start,

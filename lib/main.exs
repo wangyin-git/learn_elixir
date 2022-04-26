@@ -9,5 +9,4 @@ alias Meal.Tuple, warn: false
 alias Meal.Parallel, warn: false
 alias Meal.Queue, warn: false
 
-
-Stream.permutation([1,2,3,4], 3) |> Enum.to_list() |> p()
+Stream.repeated_combination(1..3, 10) |> Enum.take(10) |> p()

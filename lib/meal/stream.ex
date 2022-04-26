@@ -106,35 +106,34 @@ defmodule Meal.Stream do
   end
 
   def permutation(enumerable, r) when is_integer(r) do
-    count = Enum.count(enumerable)
+    if Meal.Enum.enumerable?(enumerable) do
+      count = Enum.count(enumerable)
 
-    _permutation(count, r)
-    |> Stream.map(fn perm -> Enum.map(perm, &Enum.at(enumerable, &1)) end)
-  end
+      cond do
+        r < 0 || r > count ->
+          Stream.concat([])
 
-  defp _permutation(n, r) do
-    cond do
-      r < 0 || r > n ->
-        Stream.concat([])
+        r == 0 ->
+          Stream.concat([[]], [])
 
-      r == 0 ->
-        Stream.concat([[]], [])
+        r == 1 ->
+          Stream.map(enumerable, fn e -> [e] end)
 
-      r == 1 ->
-        Stream.map(0..(n - 1), fn e -> [e] end)
-
-      r > 1 ->
-        Enum.reduce(
-          2..(r - 1)//1,
-          _no_repeat_product(Stream.map(0..(n - 1), &[&1]), 0..(n - 1)),
-          fn _, acc ->
-            _no_repeat_product(acc, 0..(n - 1))
-          end
-        )
+        r > 1 ->
+          Enum.reduce(
+            2..(r - 1)//1,
+            _permutation_product(Stream.map(enumerable, &[&1]), enumerable),
+            fn _, acc ->
+              _permutation_product(acc, enumerable)
+            end
+          )
+      end
+    else
+      raise "can not get permutation from non-enumerable"
     end
   end
 
-  defp _no_repeat_product(enumerable1, enumerable2) do
+  defp _permutation_product(enumerable1, enumerable2) do
     Stream.transform(enumerable1, enumerable2, fn list, acc ->
       {Stream.flat_map(acc, fn e2 ->
          Enum.reduce_while(list, [], fn e, acc ->
@@ -184,8 +183,6 @@ defmodule Meal.Stream do
     end)
   end
 
-  @spec cycle(any, non_neg_integer) ::
-          (any, any -> :badarg | {:halted, any} | {:suspended, any, (any -> any)})
   def cycle(enumerable, count) when Meal.is_non_neg_integer(count) do
     if Meal.Enum.enumerable?(enumerable) do
       Stream.unfold(count, fn

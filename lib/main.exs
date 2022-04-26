@@ -9,4 +9,4 @@ alias Meal.Tuple, warn: false
 alias Meal.Parallel, warn: false
 alias Meal.Queue, warn: false
 
-Stream.combination(1..4, 3) |> Enum.to_list() |> p()
+

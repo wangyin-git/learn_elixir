@@ -117,44 +117,44 @@ defmodule Meal.Stream do
     if Meal.Enum.enumerable?(enumerable) do
       count = Enum.count(enumerable)
 
-      cond do
-        r < 0 || r > count ->
-          Stream.concat([])
-
-        r == 0 ->
-          Stream.concat([[]], [])
-
-        r == 1 ->
-          Stream.map(enumerable, fn e -> [e] end)
-
-        r > 1 ->
-          Enum.reduce(
-            2..(r - 1)//1,
-            _permutation_product(Stream.map(enumerable, &[&1]), enumerable),
-            fn _, acc ->
-              _permutation_product(acc, enumerable)
-            end
-          )
-      end
+      _permutation(count, r)
+      |> Stream.map(fn perm -> Enum.map(perm, &Enum.at(enumerable, &1)) end)
     else
       raise "can not get permutation from non-enumerable"
     end
   end
 
+  defp _permutation(n, r) do
+    cond do
+      r < 0 || r > n ->
+        Stream.concat([])
+
+      r == 0 ->
+        Stream.concat([[]], [])
+
+      r == 1 ->
+        Stream.map(0..(n - 1), fn e -> [e] end)
+
+      r > 1 ->
+        Enum.reduce(
+          2..(r - 1)//1,
+          _permutation_product(Stream.map(0..(n - 1), &{[&1], MapSet.new([&1])}), 0..(n - 1)),
+          fn _, acc ->
+            _permutation_product(acc, 0..(n - 1))
+          end
+        )
+        |> Stream.map(fn {perm, _} -> perm end)
+    end
+  end
+
   defp _permutation_product(enumerable1, enumerable2) do
-    Stream.transform(enumerable1, enumerable2, fn list, acc ->
+    Stream.transform(enumerable1, enumerable2, fn {list, set}, acc ->
       {Stream.flat_map(acc, fn e2 ->
-         Enum.reduce_while(list, [], fn e, acc ->
-           if e === e2 do
-             {:halt, []}
-           else
-             {:cont, [e | acc]}
-           end
-         end)
-         |> then(fn
-           [] -> []
-           list -> [Enum.reverse([e2 | list])]
-         end)
+         if MapSet.member?(set, e2) do
+           []
+         else
+           [{list ++ [e2], MapSet.put(set, e2)}]
+         end
        end), acc}
     end)
   end

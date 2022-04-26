@@ -5,10 +5,14 @@ defmodule Meal.Stream do
   use Meal.Delegate, to: Stream, except: [chunk: 2, chunk: 3, chunk: 4, filter_map: 3, uniq: 2]
 
   def combination(enumerable, r) when is_integer(r) do
-    count = Enum.count(enumerable)
+    if Meal.Enum.enumerable?(enumerable) do
+      count = Enum.count(enumerable)
 
-    _combination(count, r)
-    |> Stream.map(fn comb -> Enum.map(comb, &Enum.at(enumerable, &1)) end)
+      _combination(count, r)
+      |> Stream.map(fn comb -> Enum.map(comb, &Enum.at(enumerable, &1)) end)
+    else
+      raise "can not get combination from non-enumerable"
+    end
   end
 
   defp _combination(n, r) do
@@ -54,10 +58,14 @@ defmodule Meal.Stream do
   end
 
   def repeated_combination(enumerable, r) when is_integer(r) do
-    count = Enum.count(enumerable)
+    if Meal.Enum.enumerable?(enumerable) do
+      count = Enum.count(enumerable)
 
-    _repeated_combination(count, r)
-    |> Stream.map(fn comb -> Enum.map(comb, &Enum.at(enumerable, &1)) end)
+      _repeated_combination(count, r)
+      |> Stream.map(fn comb -> Enum.map(comb, &Enum.at(enumerable, &1)) end)
+    else
+      raise "can not get repeated combination from non-enumerable"
+    end
   end
 
   defp _repeated_combination(n, r) do

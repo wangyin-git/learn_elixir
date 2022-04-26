@@ -199,7 +199,12 @@ defmodule Meal do
     end
   end
 
-  def p(term, opts \\ [charlists: :as_lists, limit: :infinity, printable_limit: :infinity]) do
+  def p(term, opts \\ []) do
+    opts =
+      Keyword.put_new(opts, :charlists, :as_lists)
+      |> Keyword.put_new(:limit, :infinity)
+      |> Keyword.put_new(:printable_limit, :infinity)
+
     IO.inspect(term, opts)
   end
 

@@ -40,12 +40,19 @@ defimpl Enumerable, for: Tuple do
   def slice(tuple) do
     size = tuple_size(tuple)
 
-    slice_fun = fn start, length
-                   when start >= 0 and start < size and length >= 1 and start + length <= size ->
-      for i <- start..(start + length - 1), into: [] do
-        elem(tuple, i)
+    slice_fun =
+      case size do
+        0 ->
+          fn _, _ -> [] end
+
+        _ ->
+          fn start, length
+             when start >= 0 and start < size and length >= 1 and start + length <= size ->
+            for i <- start..(start + length - 1), into: [] do
+              elem(tuple, i)
+            end
+          end
       end
-    end
 
     {:ok, size, slice_fun}
   end

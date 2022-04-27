@@ -456,16 +456,23 @@ defmodule Meal.Array do
     end
 
     def slice(%Array{} = array) do
-      {
-        :ok,
-        Array.size(array),
-        fn start, len ->
-          Enum.reduce(start..(start + len - 1), [], fn idx, acc ->
-            [Array.get(array, idx) | acc]
-          end)
-          |> Enum.reverse()
+      size = Array.size(array)
+
+      slice_fun =
+        case size do
+          0 ->
+            fn _, _ -> [] end
+
+          _ ->
+            fn start, len ->
+              Enum.reduce(start..(start + len - 1), [], fn idx, acc ->
+                [Array.get(array, idx) | acc]
+              end)
+              |> Enum.reverse()
+            end
         end
-      }
+
+      {:ok, size, slice_fun}
     end
 
     def reduce(_array, {:halt, acc}, _fun), do: {:halted, acc}

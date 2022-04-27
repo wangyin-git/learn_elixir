@@ -8,9 +8,3 @@ alias Meal.Map, warn: false
 alias Meal.Tuple, warn: false
 alias Meal.Parallel, warn: false
 alias Meal.Queue, warn: false
-
-queue = Queue.new()
-
-Enum.random_access?(queue) |> p()
-Enum.calc_count?(queue) |> p()
-Enum.check_member?(queue) |> p()

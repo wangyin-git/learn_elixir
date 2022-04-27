@@ -14,8 +14,32 @@ defmodule Meal.Enum do
     normalize_index(enumerable, first)..normalize_index(enumerable, last)
   end
 
-  def enumerable?(element) do
-    Meal.impl_protocol?(element, Enumerable)
+  def enumerable?(term) do
+    Meal.impl_protocol?(term, Enumerable)
+  end
+
+  def random_access?(term) do
+    if enumerable?(term) do
+      match?({:ok, _, _}, Enumerable.impl_for(term).slice(term))
+    else
+      raise "can not call on non-enumerable"
+    end
+  end
+
+  def calc_count?(term) do
+    if enumerable?(term) do
+      match?({:ok, _}, Enumerable.impl_for(term).count(term))
+    else
+      raise "can not call on non-enumerable"
+    end
+  end
+
+  def check_member?(term) do
+    if enumerable?(term) do
+      match?({:ok, _}, Enumerable.impl_for(term).member?(term, 1))
+    else
+      raise "can not call on non-enumerable"
+    end
   end
 
   def enumerable_wrap(element) do

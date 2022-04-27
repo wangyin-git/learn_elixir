@@ -165,17 +165,8 @@ defmodule Meal.Queue do
       end
     end
 
-    def slice(%Queue{__queue__: queue}) do
-      {list, size} =
-        :queue.fold(fn item, {list, size} -> {[item | list], size + 1} end, {[], 0}, queue)
-
-      list = Enum.reverse(list)
-
-      slice_fun = fn start, length ->
-        Enum.slice(list, start, length)
-      end
-
-      {:ok, size, slice_fun}
+    def slice(_queue) do
+      {:error, __MODULE__}
     end
   end
 

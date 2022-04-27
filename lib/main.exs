@@ -9,4 +9,8 @@ alias Meal.Tuple, warn: false
 alias Meal.Parallel, warn: false
 alias Meal.Queue, warn: false
 
-Stream.repeated_combination('wangyin', 5) |> Enum.to_list() |> p(charlists: :infer)
+queue = Queue.from_enumerable(1..3)
+
+Enum.random_access?(queue) |> p()
+Enum.calc_count?(queue) |> p()
+Enum.check_member?(queue) |> p()

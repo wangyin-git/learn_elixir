@@ -146,12 +146,20 @@ defmodule Meal.Queue do
   end
 
   defimpl Enumerable do
-    def count(_queue) do
-      {:error, __MODULE__}
+    def count(%Queue{__queue__: queue}) do
+      if match?({[], []}, queue) do
+        {:ok, 0}
+      else
+        {:error, __MODULE__}
+      end
     end
 
-    def member?(_queue, _element) do
-      {:error, __MODULE__}
+    def member?(%Queue{__queue__: queue}, _element) do
+      if match?({[], []}, queue) do
+        {:ok, false}
+      else
+        {:error, __MODULE__}
+      end
     end
 
     def reduce(_, {:halt, acc}, _fun), do: {:halted, acc}
@@ -165,8 +173,12 @@ defmodule Meal.Queue do
       end
     end
 
-    def slice(_queue) do
-      {:error, __MODULE__}
+    def slice(%Queue{__queue__: queue}) do
+      if match?({[], []}, queue) do
+        {:ok, 0, fn _, _ -> [] end}
+      else
+        {:error, __MODULE__}
+      end
     end
   end
 

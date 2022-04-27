@@ -447,8 +447,12 @@ defmodule Meal.Array do
       {:ok, Array.size(array)}
     end
 
-    def member?(%Array{}, _element) do
-      {:error, __MODULE__}
+    def member?(%Array{} = array, _element) do
+      if Array.size(array) == 0 do
+        {:ok, false}
+      else
+        {:error, __MODULE__}
+      end
     end
 
     def slice(%Array{} = array) do

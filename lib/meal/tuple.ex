@@ -22,8 +22,12 @@ defimpl Enumerable, for: Tuple do
     {:ok, tuple_size(tuple)}
   end
 
-  def member?(_tuple, _element) do
-    {:error, __MODULE__}
+  def member?(tuple, _element) do
+    if tuple_size(tuple) == 0 do
+      {:ok, false}
+    else
+      {:error, __MODULE__}
+    end
   end
 
   def reduce(_, {:halt, acc}, _fun), do: {:halted, acc}

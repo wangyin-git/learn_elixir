@@ -66,16 +66,28 @@ end
 defimpl Enumerable, for: Meal.Iterator do
   alias Meal.Iterator
 
-  def count(%Iterator{}) do
-    {:error, __MODULE__}
+  def count(%Iterator{} = iter) do
+    if Iterator.end?(iter) do
+      {:ok, 0}
+    else
+      {:error, __MODULE__}
+    end
   end
 
-  def member?(%Iterator{}, _element) do
-    {:error, __MODULE__}
+  def member?(%Iterator{} = iter, _element) do
+    if Iterator.end?(iter) do
+      {:ok, false}
+    else
+      {:error, __MODULE__}
+    end
   end
 
-  def slice(%Iterator{}) do
-    {:error, __MODULE__}
+  def slice(%Iterator{} = iter) do
+    if Iterator.end?(iter) do
+      {:ok, 0, fn _, _ -> [] end}
+    else
+      {:error, __MODULE__}
+    end
   end
 
   def reduce(_iter, {:halt, acc}, _fun), do: {:halted, acc}

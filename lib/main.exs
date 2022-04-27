@@ -11,6 +11,6 @@ alias Meal.Queue, warn: false
 
 queue = Queue.from_enumerable(1..3)
 
-Enum.random_access?(queue) |> p()
-Enum.calc_count?(queue) |> p()
-Enum.check_member?(queue) |> p()
+Enum.random_access?({1}) |> p()
+Enum.calc_count?({1}) |> p()
+Enum.check_member?({1}) |> p()

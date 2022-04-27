@@ -147,7 +147,9 @@ defmodule Meal.Queue do
 
   defimpl Enumerable do
     def count(%Queue{__queue__: queue}) do
-      if match?({[], []}, queue) do
+      empty_queue = :queue.new()
+
+      if match?(^empty_queue, queue) do
         {:ok, 0}
       else
         {:error, __MODULE__}
@@ -155,7 +157,9 @@ defmodule Meal.Queue do
     end
 
     def member?(%Queue{__queue__: queue}, _element) do
-      if match?({[], []}, queue) do
+      empty_queue = :queue.new()
+
+      if match?(^empty_queue, queue) do
         {:ok, false}
       else
         {:error, __MODULE__}
@@ -174,7 +178,9 @@ defmodule Meal.Queue do
     end
 
     def slice(%Queue{__queue__: queue}) do
-      if match?({[], []}, queue) do
+      empty_queue = :queue.new()
+
+      if match?(^empty_queue, queue) do
         {:ok, 0, fn _, _ -> [] end}
       else
         {:error, __MODULE__}

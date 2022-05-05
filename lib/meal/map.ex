@@ -3,9 +3,9 @@ defmodule Meal.Map do
 
   def update(%{} = map, key, fun) when is_function(fun, 1) do
     if has_key?(map, key) do
-      update!(map, key, fun)
+      {:ok, update!(map, key, fun)}
     else
-      map
+      :error
     end
   end
 end

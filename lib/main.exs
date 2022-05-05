@@ -8,3 +8,10 @@ alias Meal.Map, warn: false
 alias Meal.Tuple, warn: false
 alias Meal.Parallel, warn: false
 alias Meal.Queue, warn: false
+
+
+case Map.update(%{a: 1, b: 2}, :aa, fn v -> v * 2 end) do
+  {:ok, map} -> map
+  :error -> "key not found"
+end
+|> p()

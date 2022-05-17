@@ -278,17 +278,17 @@ defmodule Meal do
 
     case arity do
       0 ->
-        fun.()
+        fun
 
       arity ->
-        args_map =
+        {args_map, args_call_list} =
           Enum.reduce(
             1..arity,
-            %{args_call_list: []},
-            fn i, acc ->
+            {%{}, []},
+            fn i, {map, list} ->
               case Map.fetch(args_map, i) do
-                {:ok, arg} -> Map.put(acc, String.to_atom("arg#{i}"), arg)
-                :error -> Map.update(acc, :args_call_list, [], &["arg#{i}" | &1])
+                {:ok, arg} -> {Map.put(map, String.to_atom("arg#{i}"), arg), list}
+                :error -> {map, ["arg#{i}" | list]}
               end
             end
           )
@@ -296,15 +296,13 @@ defmodule Meal do
         args_apply_str = "[" <> Enum.map_join(1..arity//1, ",", &("arg" <> to_string(&1))) <> "]"
 
         code =
-          case Enum.reverse(args_map.args_call_list)
+          case Enum.reverse(args_call_list)
                |> Enum.join(",") do
-            "" -> "apply(fun, #{args_apply_str})"
+            "" -> "fn -> apply(fun, #{args_apply_str}) end"
             args -> "fn #{args} -> apply(fun, #{args_apply_str}) end"
           end
 
-        args_map =
-          Map.delete(args_map, :args_call_list)
-          |> Map.put(:fun, fun)
+        args_map = Map.put(args_map, :fun, fun)
 
         code
         |> Code.eval_string(Map.to_list(args_map))

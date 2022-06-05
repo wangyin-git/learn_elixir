@@ -6,9 +6,18 @@ defmodule Meal.Parallel do
 
     enumerable
     |> Task.async_stream(fun, opts)
-    |> Stream.map(fn
-      {:ok, v} -> v
-      timeout_result -> timeout_result
+    |> then(fn stream ->
+      case Keyword.get(opts, :timeout) do
+        :infinity ->
+          stream |> Stream.map(fn {:ok, v} -> v end)
+
+        _ ->
+          stream
+          |> Stream.map(fn
+            {:ok, v} -> {:ok, v}
+            {:exit, :timeout} -> :timeout
+          end)
+      end
     end)
   end
 
@@ -32,9 +41,18 @@ defmodule Meal.Parallel do
       end,
       opts
     )
-    |> Stream.map(fn
-      {:ok, v} -> v
-      timeout_result -> timeout_result
+    |> then(fn stream ->
+      case Keyword.get(opts, :timeout) do
+        :infinity ->
+          stream |> Stream.map(fn {:ok, v} -> v end)
+
+        _ ->
+          stream
+          |> Stream.map(fn
+            {:ok, v} -> {:ok, v}
+            {:exit, :timeout} -> :timeout
+          end)
+      end
     end)
   end
 
@@ -45,9 +63,18 @@ defmodule Meal.Parallel do
 
     enumerable
     |> Task.async_stream(fun, opts)
-    |> Stream.map(fn
-      {:ok, v} -> v
-      timeout_result -> timeout_result
+    |> then(fn stream ->
+      case Keyword.get(opts, :timeout) do
+        :infinity ->
+          stream |> Stream.map(fn {:ok, v} -> v end)
+
+        _ ->
+          stream
+          |> Stream.map(fn
+            {:ok, v} -> {:ok, v}
+            {:exit, :timeout} -> :timeout
+          end)
+      end
     end)
     |> Enum.map_intersperse(separator, & &1)
   end
@@ -59,9 +86,18 @@ defmodule Meal.Parallel do
 
     enumerable
     |> Task.async_stream(fun, opts)
-    |> Stream.map(fn
-      {:ok, v} -> v
-      timeout_result -> timeout_result
+    |> then(fn stream ->
+      case Keyword.get(opts, :timeout) do
+        :infinity ->
+          stream |> Stream.map(fn {:ok, v} -> v end)
+
+        _ ->
+          stream
+          |> Stream.map(fn
+            {:ok, v} -> "{:ok, #{v}}"
+            {:exit, :timeout} -> :timeout
+          end)
+      end
     end)
     |> Enum.map_join(joiner, & &1)
   end
@@ -73,9 +109,18 @@ defmodule Meal.Parallel do
 
     enumerable
     |> Task.async_stream(fun, opts)
-    |> Stream.map(fn
-      {:ok, v} -> Meal.Enum.enumerable_wrap(v)
-      timeout_result -> [timeout_result]
+    |> then(fn stream ->
+      case Keyword.get(opts, :timeout) do
+        :infinity ->
+          stream |> Stream.map(fn {:ok, v} -> v end)
+
+        _ ->
+          stream
+          |> Stream.map(fn
+            {:ok, v} -> [{:ok, Meal.Enum.flatten(v, 1)}]
+            {:exit, :timeout} -> [:timeout]
+          end)
+      end
     end)
     |> Stream.flat_map(& &1)
   end
@@ -93,8 +138,14 @@ defmodule Meal.Parallel do
     end)
     |> Stream.map(fn chunk ->
       Enum.map(chunk, fn
-        {:ok, {_, element}} -> element
-        timeout_result -> timeout_result
+        {:ok, {_, element}} ->
+          case Keyword.get(opts, :timeout) do
+            :infinity -> element
+            _ -> {:ok, element}
+          end
+
+        {:exit, :timeout} ->
+          :timeout
       end)
     end)
   end
@@ -123,8 +174,14 @@ defmodule Meal.Parallel do
       timeout_result -> timeout_result
     end)
     |> Stream.map(fn
-      {:ok, {_, element}} -> element
-      timeout_result -> timeout_result
+      {:ok, {_, element}} ->
+        case Keyword.get(opts, :timeout) do
+          :infinity -> element
+          _ -> {:ok, element}
+        end
+
+      {:exit, :timeout} ->
+        :timeout
     end)
   end
 
@@ -137,19 +194,16 @@ defmodule Meal.Parallel do
       Keyword.put_new(opts, :timeout, :infinity)
       |> Keyword.put_new(:on_timeout, :kill_task)
 
-    Task.async(fn ->
-      enumerable
-      |> Task.async_stream(&{fun.(&1), &1}, opts)
-      |> Enum.find(:not_found, fn
-        {:ok, {value, _}} -> value
-        _ -> false
-      end)
-      |> then(fn
-        :not_found -> default
-        {:ok, {_, element}} -> element
-      end)
+    enumerable
+    |> Task.async_stream(&{fun.(&1), &1}, opts)
+    |> Enum.find(:not_found, fn
+      {:ok, {value, _}} -> value
+      _ -> false
     end)
-    |> Task.await(:infinity)
+    |> then(fn
+      :not_found -> default
+      {:ok, {_, element}} -> element
+    end)
   end
 
   def find_value(enumerable, default \\ nil, fun, opts \\ []) when is_function(fun, 1) do
@@ -157,19 +211,16 @@ defmodule Meal.Parallel do
       Keyword.put_new(opts, :timeout, :infinity)
       |> Keyword.put_new(:on_timeout, :kill_task)
 
-    Task.async(fn ->
-      enumerable
-      |> Task.async_stream(&{fun.(&1), &1}, opts)
-      |> Enum.find_value(:not_found, fn
-        {:ok, {value, _}} -> value
-        _ -> false
-      end)
-      |> then(fn
-        :not_found -> default
-        value -> value
-      end)
+    enumerable
+    |> Task.async_stream(&{fun.(&1), &1}, opts)
+    |> Enum.find_value(:not_found, fn
+      {:ok, {value, _}} -> if value, do: {:ok, value}, else: false
+      _ -> false
     end)
-    |> Task.await(:infinity)
+    |> then(fn
+      {:ok, value} -> value
+      :not_found -> default
+    end)
   end
 
   def find_index(enumerable, fun, opts \\ []) when is_function(fun, 1) do

@@ -64,7 +64,6 @@ defmodule Meal.Queue do
     :queue.filter(
       fn item ->
         fun.(item)
-        |> Meal.Enum.enumerable_wrap()
         |> Enum.to_list()
       end,
       queue

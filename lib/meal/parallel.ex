@@ -1,65 +1,59 @@
 defmodule Meal.Parallel do
+  defp exclude_exit(stream, opts) do
+    if keyword.get(opts, :exclude_exit) == true do
+      Stream.flat_map(stream, fn
+        {:ok, v} -> [v]
+        _ -> []
+      end)
+    else
+      stream
+    end
+  end
+
+  defp default_opts() do
+    [
+      timeout: :infinity,
+      on_timeout: :kill_task,
+      ordered: true,
+      zip_input_on_exit: false,
+      exclude_exit: true
+    ]
+  end
+
   def map(enumerable, fun, opts \\ []) do
-    opts =
-      Keyword.put_new(opts, :timeout, :infinity)
-      |> Keyword.put_new(:on_timeout, :kill_task)
+    opts = Keyword.merge(default_opts(), opts)
 
-    enumerable
-    |> Task.async_stream(fun, opts)
-    |> then(fn stream ->
-      case Keyword.get(opts, :timeout) do
-        :infinity ->
-          stream |> Stream.map(fn {:ok, v} -> v end)
+    stream = enumerable |> Task.async_stream(fun, opts)
 
-        _ ->
-          stream
-          |> Stream.map(fn
-            {:ok, v} -> {:ok, v}
-            {:exit, :timeout} -> :timeout
-          end)
-      end
-    end)
+    exclude_exit(stream, opts)
   end
 
   def map_every(enumerable, nth, fun, opts \\ [])
+
   def map_every(enumerable, 0, fun, _), do: Stream.map_every(enumerable, 0, fun)
 
   def map_every(enumerable, nth, fun, opts) when is_integer(nth) and nth > 0 do
-    opts =
-      Keyword.put_new(opts, :timeout, :infinity)
-      |> Keyword.put_new(:on_timeout, :kill_task)
+    opts = Keyword.merge(default_opts(), opts)
 
-    enumerable
-    |> Stream.with_index()
-    |> Task.async_stream(
-      fn {element, index} ->
-        if rem(index, nth) == 0 do
-          fun.(element)
-        else
-          element
-        end
-      end,
-      opts
-    )
-    |> then(fn stream ->
-      case Keyword.get(opts, :timeout) do
-        :infinity ->
-          stream |> Stream.map(fn {:ok, v} -> v end)
+    stream =
+      enumerable
+      |> Stream.with_index()
+      |> Task.async_stream(
+        fn {element, index} ->
+          if rem(index, nth) == 0 do
+            fun.(element)
+          else
+            element
+          end
+        end,
+        opts
+      )
 
-        _ ->
-          stream
-          |> Stream.map(fn
-            {:ok, v} -> {:ok, v}
-            {:exit, :timeout} -> :timeout
-          end)
-      end
-    end)
+   exclude_exit(stream, opts)
   end
 
   def map_intersperse(enumerable, separator, fun, opts \\ []) do
-    opts =
-      Keyword.put_new(opts, :timeout, :infinity)
-      |> Keyword.put_new(:on_timeout, :kill_task)
+    opts = Keyword.merge(default_opts(), opts)
 
     enumerable
     |> Task.async_stream(fun, opts)
@@ -80,9 +74,7 @@ defmodule Meal.Parallel do
   end
 
   def map_join(enumerable, joiner \\ "", fun, opts \\ []) do
-    opts =
-      Keyword.put_new(opts, :timeout, :infinity)
-      |> Keyword.put_new(:on_timeout, :kill_task)
+    opts = Keyword.merge(default_opts(), opts)
 
     enumerable
     |> Task.async_stream(fun, opts)
@@ -103,9 +95,7 @@ defmodule Meal.Parallel do
   end
 
   def flat_map(enumerable, fun, opts \\ []) do
-    opts =
-      Keyword.put_new(opts, :timeout, :infinity)
-      |> Keyword.put_new(:on_timeout, :kill_task)
+    opts = Keyword.merge(default_opts(), opts)
 
     enumerable
     |> Task.async_stream(fun, opts)
@@ -126,9 +116,7 @@ defmodule Meal.Parallel do
   end
 
   def chunk_by(enumerable, fun, opts \\ []) do
-    opts =
-      Keyword.put_new(opts, :timeout, :infinity)
-      |> Keyword.put_new(:on_timeout, :kill_task)
+    opts = Keyword.merge(default_opts(), opts)
 
     enumerable
     |> Task.async_stream(&{fun.(&1), &1}, opts)
@@ -151,9 +139,7 @@ defmodule Meal.Parallel do
   end
 
   def each(enumerable, fun, opts \\ []) do
-    opts =
-      Keyword.put_new(opts, :timeout, :infinity)
-      |> Keyword.put_new(:on_timeout, :kill_task)
+    opts = Keyword.merge(default_opts(), opts)
 
     enumerable
     |> Task.async_stream(fun, opts)
@@ -163,9 +149,7 @@ defmodule Meal.Parallel do
   end
 
   def filter(enumerable, fun, opts \\ []) do
-    opts =
-      Keyword.put_new(opts, :timeout, :infinity)
-      |> Keyword.put_new(:on_timeout, :kill_task)
+    opts = Keyword.merge(default_opts(), opts)
 
     enumerable
     |> Task.async_stream(&{fun.(&1), &1}, opts)
@@ -190,9 +174,7 @@ defmodule Meal.Parallel do
   end
 
   def find(enumerable, default \\ nil, fun, opts \\ []) when is_function(fun, 1) do
-    opts =
-      Keyword.put_new(opts, :timeout, :infinity)
-      |> Keyword.put_new(:on_timeout, :kill_task)
+    opts = Keyword.merge(default_opts(), opts)
 
     enumerable
     |> Task.async_stream(&{fun.(&1), &1}, opts)
@@ -207,9 +189,7 @@ defmodule Meal.Parallel do
   end
 
   def find_value(enumerable, default \\ nil, fun, opts \\ []) when is_function(fun, 1) do
-    opts =
-      Keyword.put_new(opts, :timeout, :infinity)
-      |> Keyword.put_new(:on_timeout, :kill_task)
+    opts = Keyword.merge(default_opts(), opts)
 
     enumerable
     |> Task.async_stream(&{fun.(&1), &1}, opts)

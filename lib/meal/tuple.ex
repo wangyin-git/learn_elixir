@@ -69,3 +69,9 @@ defimpl Collectable, for: Tuple do
     {tuple, collector_fun}
   end
 end
+
+defimpl String.Chars, for: Tuple do
+  def to_string(tuple) do
+    "{" <> Enum.map_join(tuple, ", ", & &1) <> "}"
+  end
+end

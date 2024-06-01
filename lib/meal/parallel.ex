@@ -1,6 +1,6 @@
 defmodule Meal.Parallel do
   defp exclude_exit(stream, opts) do
-    if keyword.get(opts, :exclude_exit) == true do
+    if Keyword.get(opts, :exclude_exit) == true do
       Stream.flat_map(stream, fn
         {:ok, v} -> [v]
         _ -> []
@@ -49,27 +49,14 @@ defmodule Meal.Parallel do
         opts
       )
 
-   exclude_exit(stream, opts)
+    exclude_exit(stream, opts)
   end
 
   def map_intersperse(enumerable, separator, fun, opts \\ []) do
     opts = Keyword.merge(default_opts(), opts)
 
     enumerable
-    |> Task.async_stream(fun, opts)
-    |> then(fn stream ->
-      case Keyword.get(opts, :timeout) do
-        :infinity ->
-          stream |> Stream.map(fn {:ok, v} -> v end)
-
-        _ ->
-          stream
-          |> Stream.map(fn
-            {:ok, v} -> {:ok, v}
-            {:exit, :timeout} -> :timeout
-          end)
-      end
-    end)
+    |> map(fun, opts)
     |> Enum.map_intersperse(separator, & &1)
   end
 
@@ -77,65 +64,43 @@ defmodule Meal.Parallel do
     opts = Keyword.merge(default_opts(), opts)
 
     enumerable
-    |> Task.async_stream(fun, opts)
-    |> then(fn stream ->
-      case Keyword.get(opts, :timeout) do
-        :infinity ->
-          stream |> Stream.map(fn {:ok, v} -> v end)
-
-        _ ->
-          stream
-          |> Stream.map(fn
-            {:ok, v} -> "{:ok, #{v}}"
-            {:exit, :timeout} -> :timeout
-          end)
-      end
-    end)
+    |> map(fun, opts)
     |> Enum.map_join(joiner, & &1)
   end
 
   def flat_map(enumerable, fun, opts \\ []) do
     opts = Keyword.merge(default_opts(), opts)
 
-    enumerable
-    |> Task.async_stream(fun, opts)
-    |> then(fn stream ->
-      case Keyword.get(opts, :timeout) do
-        :infinity ->
-          stream |> Stream.map(fn {:ok, v} -> v end)
+    stream = enumerable |> map(fun, opts)
 
-        _ ->
-          stream
-          |> Stream.map(fn
-            {:ok, v} -> [{:ok, Meal.Enum.flatten(v, 1)}]
-            {:exit, :timeout} -> [:timeout]
-          end)
-      end
-    end)
-    |> Stream.flat_map(& &1)
+    if Keyword.get(opts, :exclude_exit) == true do
+      Stream.flat_map(stream, & &1)
+    else
+      stream
+    end
   end
 
   def chunk_by(enumerable, fun, opts \\ []) do
     opts = Keyword.merge(default_opts(), opts)
+    opts = Keyword.put(opts, :zip_input_on_exit, true)
 
-    enumerable
-    |> Task.async_stream(&{fun.(&1), &1}, opts)
-    |> Stream.chunk_by(fn
-      {:ok, {value, _}} -> value
-      timeout_result -> timeout_result
-    end)
-    |> Stream.map(fn chunk ->
-      Enum.map(chunk, fn
-        {:ok, {_, element}} ->
-          case Keyword.get(opts, :timeout) do
-            :infinity -> element
-            _ -> {:ok, element}
-          end
+    stream = enumerable |> map(&{fun.(&1), &1}, opts)
 
-        {:exit, :timeout} ->
-          :timeout
+    if Keyword.get(opts, :exclude_exit) == true do
+      Stream.chunk_by(stream, fn {value, _} -> value end)
+      |> Stream.map(fn chunk -> Enum.map(chunk, fn {_, elem} -> elem end) end)
+    else
+      Stream.chunk_by(stream, fn
+        {:ok, {value, _}} -> value
+        {:exit, {_, reason}} -> reason
       end)
-    end)
+      |> Stream.map(fn chunk ->
+        Enum.map(chunk, fn
+          {:ok, {_, elem}} -> {:ok, elem}
+          exit_item -> exit_item
+        end)
+      end)
+    end
   end
 
   def each(enumerable, fun, opts \\ []) do
@@ -150,23 +115,23 @@ defmodule Meal.Parallel do
 
   def filter(enumerable, fun, opts \\ []) do
     opts = Keyword.merge(default_opts(), opts)
+    opts = Keyword.put(opts, :zip_input_on_exit, true)
 
-    enumerable
-    |> Task.async_stream(&{fun.(&1), &1}, opts)
-    |> Stream.filter(fn
-      {:ok, {result, _}} -> result
-      timeout_result -> timeout_result
-    end)
-    |> Stream.map(fn
-      {:ok, {_, element}} ->
-        case Keyword.get(opts, :timeout) do
-          :infinity -> element
-          _ -> {:ok, element}
-        end
+    stream = enumerable |> map(&{fun.(&1), &1}, opts)
 
-      {:exit, :timeout} ->
-        :timeout
-    end)
+    if Keyword.get(opts, :exclude_exit) == true do
+      Stream.filter(stream, fn {value, _} -> value end)
+      |> Stream.map(fn {_, elem} -> elem end)
+    else
+      Stream.filter(stream, fn
+        {:ok, {value, _}} -> value
+        _ -> true
+      end)
+      |> Stream.map(fn
+        {:ok, {_, elem}} -> {:ok, elem}
+        exit_item -> exit_item
+      end)
+    end
   end
 
   def reject(enumerable, fun, opts \\ []) do
@@ -215,7 +180,11 @@ defmodule Meal.Parallel do
 
   def zip_with(enumerables, fun, opts \\ []) do
     enumerables
-    |> Stream.zip()
+    |> Stream.zip_with(& &1)
     |> map(fun, opts)
+  end
+
+  def zip_with2(enum1, enum2, fun, opts \\ []) do
+    zip_with([enum1, enum2], fun, opts)
   end
 end

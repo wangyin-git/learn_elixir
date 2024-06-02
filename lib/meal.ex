@@ -1,4 +1,20 @@
 defmodule Meal do
+  use Application
+
+  @impl true
+  def start(_type, _args) do
+    children = [
+      # Starts a worker by calling: Meal.Worker.start_link(arg)
+      # {Meal.Worker, arg}
+      {Task.Supervisor, name: Meal.Parallel.Supervisor}
+    ]
+
+    # See https://hexdocs.pm/elixir/Supervisor.html
+    # for other strategies and supported options
+    opts = [strategy: :one_for_one, name: Meal.Supervisor]
+    Supervisor.start_link(children, opts)
+  end
+
   @break_label :break_5bae
   @continue_label :continue_5bae
 
@@ -127,15 +143,15 @@ defmodule Meal do
     end
   end
 
-  defmacro break_if(label, do: do_clause) when is_atom(label) do
-    quote do
-      if(unquote(do_clause), do: Meal.break(label: label))
-    end
-  end
-
   defmacro break_if(clause) do
     quote do
       if(unquote(clause), do: Meal.break())
+    end
+  end
+
+  defmacro break_if(label, do: do_clause) when is_atom(label) do
+    quote do
+      if(unquote(do_clause), do: Meal.break(label: label))
     end
   end
 
@@ -151,15 +167,15 @@ defmodule Meal do
     end
   end
 
-  defmacro break_unless(label, do: do_clause) when is_atom(label) do
-    quote do
-      Meal.break_if(!unquote(do_clause), label: label)
-    end
-  end
-
   defmacro break_unless(clause) do
     quote do
       Meal.break_if(!unquote(clause))
+    end
+  end
+
+  defmacro break_unless(label, do: do_clause) when is_atom(label) do
+    quote do
+      Meal.break_if(!unquote(do_clause), label: label)
     end
   end
 

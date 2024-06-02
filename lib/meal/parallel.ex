@@ -23,7 +23,7 @@ defmodule Meal.Parallel do
   def map(enumerable, fun, opts \\ []) do
     opts = Keyword.merge(default_opts(), opts)
 
-    stream = enumerable |> Task.async_stream(fun, opts)
+    stream = Task.Supervisor.async_stream_nolink(Meal.Parallel.Supervisor, enumerable, fun, opts)
 
     exclude_exit(stream, opts)
   end
@@ -36,9 +36,9 @@ defmodule Meal.Parallel do
     opts = Keyword.merge(default_opts(), opts)
 
     stream =
-      enumerable
-      |> Stream.with_index()
-      |> Task.async_stream(
+      Task.Supervisor.async_stream_nolink(
+        Meal.Parallel.Supervisor,
+        Stream.with_index(enumerable),
         fn {element, index} ->
           if rem(index, nth) == 0 do
             fun.(element)
@@ -106,8 +106,7 @@ defmodule Meal.Parallel do
   def each(enumerable, fun, opts \\ []) do
     opts = Keyword.merge(default_opts(), opts)
 
-    enumerable
-    |> Task.async_stream(fun, opts)
+    Task.Supervisor.async_stream_nolink(Meal.Parallel.Supervisor, enumerable, fun, opts)
     |> Stream.run()
 
     :ok
@@ -141,8 +140,12 @@ defmodule Meal.Parallel do
   def find(enumerable, default \\ nil, fun, opts \\ []) when is_function(fun, 1) do
     opts = Keyword.merge(default_opts(), opts)
 
-    enumerable
-    |> Task.async_stream(&{fun.(&1), &1}, opts)
+    Task.Supervisor.async_stream_nolink(
+      Meal.Parallel.Supervisor,
+      enumerable,
+      &{fun.(&1), &1},
+      opts
+    )
     |> Enum.find(:not_found, fn
       {:ok, {value, _}} -> value
       _ -> false
@@ -156,8 +159,12 @@ defmodule Meal.Parallel do
   def find_value(enumerable, default \\ nil, fun, opts \\ []) when is_function(fun, 1) do
     opts = Keyword.merge(default_opts(), opts)
 
-    enumerable
-    |> Task.async_stream(&{fun.(&1), &1}, opts)
+    Task.Supervisor.async_stream_nolink(
+      Meal.Parallel.Supervisor,
+      enumerable,
+      &{fun.(&1), &1},
+      opts
+    )
     |> Enum.find_value(:not_found, fn
       {:ok, {value, _}} -> if value, do: {:ok, value}, else: false
       _ -> false

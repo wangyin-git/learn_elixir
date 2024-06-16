@@ -19,49 +19,6 @@ defmodule Meal.String do
       valid_character?: 1
     ]
 
-  def byte_at(str, pos) when is_binary(str) and is_integer(pos) do
-    pos = Meal.Enum.normalize_index(1..byte_size(str)//1, pos)
-
-    if pos >= 0 && pos < byte_size(str) do
-      <<_::binary-size(pos), byte::8, _::binary>> = str
-      byte
-    else
-      nil
-    end
-  end
-
-  def byte_slice(str, first..last) when is_binary(str) do
-    size = byte_size(str)
-
-    with first when first >= 0 and first < size <- Meal.Enum.normalize_index(1..size//1, first),
-         last when first <= last <- Meal.Enum.normalize_index(1..size//1, last) do
-      len = min(size - first, last - first + 1)
-      <<_::binary-size(first), bytes::binary-size(len), _::binary>> = str
-      bytes
-    else
-      _ -> ""
-    end
-  end
-
-  def byte_slice(str, start, length) when is_integer(start) and is_integer(length) do
-    cond do
-      length == 0 ->
-        str
-
-      length < 0 ->
-        byte_slice(str, start..-1)
-
-      length > 0 && start >= 0 ->
-        byte_slice(str, start..(start + length - 1))
-
-      length > 0 && start < 0 && start + length - 1 < 0 ->
-        byte_slice(str, start..(start + length - 1))
-
-      length > 0 && start < 0 && start + length - 1 >= 0 ->
-        byte_slice(str, start..-1)
-    end
-  end
-
   def indexOf(str, pattern, pos \\ 0)
 
   def indexOf(str, %Regex{} = pattern, pos)

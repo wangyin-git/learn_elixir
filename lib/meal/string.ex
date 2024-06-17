@@ -34,7 +34,7 @@ defmodule Meal.String do
     indexOf(str, ~r/#{Regex.escape(pattern)}/, pos)
   end
 
-  def replace_slice(str, first..last, replacement)
+  def replace_slice(str, first..last//_, replacement)
       when is_binary(str) and is_binary(replacement) do
     len = String.length(str)
 
@@ -67,7 +67,7 @@ defmodule Meal.String do
     end
   end
 
-  def delete_slice(str, first..last) when is_binary(str) do
+  def delete_slice(str, first..last//_) when is_binary(str) do
     replace_slice(str, first..last, "")
   end
 

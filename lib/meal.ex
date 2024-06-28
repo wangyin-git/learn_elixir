@@ -59,6 +59,23 @@ defmodule Meal do
     end
   end
 
+  defmacro loop(times, do: do_clause) do
+    quote do
+      try do
+        for _ <- 1..unquote(times)//1 do
+          try do
+            unquote(do_clause)
+          catch
+            unquote(@continue_label) -> nil
+          end
+        end
+      catch
+        unquote(@break_label) -> nil
+        {unquote(@break_label), var} -> var
+      end
+    end
+  end
+
   defmacro continue() do
     quote do
       throw(unquote(@continue_label))

@@ -58,13 +58,13 @@ defmodule Meal do
   defmacro loop(do: do_clause) do
     quote do
       try do
-        for _ <- Stream.cycle([1]) do
+        Enum.each(Stream.cycle([1]), fn _ ->
           try do
             unquote(do_clause)
           catch
             unquote(@continue_label) -> nil
           end
-        end
+        end)
       catch
         unquote(@break_label) -> nil
         {unquote(@break_label), var} -> var
@@ -75,13 +75,13 @@ defmodule Meal do
   defmacro loop(times, do: do_clause) do
     quote do
       try do
-        for _ <- 1..unquote(times)//1 do
+        Enum.each(1..unquote(times)//1, fn _ ->
           try do
             unquote(do_clause)
           catch
             unquote(@continue_label) -> nil
           end
-        end
+        end)
       catch
         unquote(@break_label) -> nil
         {unquote(@break_label), var} -> var

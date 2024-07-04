@@ -1,6 +1,18 @@
 defmodule Meal do
   use Application
 
+  defmacro __using__(_ \\ []) do
+    quote do
+      alias Meal.Enum
+      alias Meal.List
+      alias Meal.Map
+      alias Meal.MapSet
+      alias Meal.Stream
+      alias Meal.String
+      alias Meal.Tuple
+    end
+  end
+
   @impl true
   def start(_type, _args) do
     children = [

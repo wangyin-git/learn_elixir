@@ -10,8 +10,8 @@ defmodule Meal.Enum do
     if index >= 0, do: index, else: index + size
   end
 
-  def normalize_range(enumerable, first..last) do
-    normalize_index(enumerable, first)..normalize_index(enumerable, last)
+  def normalize_range(enumerable, first..last//step) when Meal.is_pos_integer(step) do
+    normalize_index(enumerable, first)..normalize_index(enumerable, last)//step
   end
 
   def enumerable?(term) do
@@ -108,14 +108,15 @@ defmodule Meal.Enum do
     end
   end
 
-  def values_at(enumerable, list) when is_list(list) do
+  def values_at(enumerable, indexes) do
     if !enumerable?(enumerable), do: raise("can not get values on non-enumerable")
+    if !enumerable?(indexes), do: raise("indexes parameter must be enumerable")
 
-    for idx_or_slice <- list, reduce: [] do
+    for idx_or_slice <- indexes, reduce: [] do
       acc ->
         case idx_or_slice do
-          first..last ->
-            acc ++ slice(enumerable, first..last)
+          first..last//step ->
+            acc ++ slice(enumerable, first..last//step)
 
           idx ->
             acc ++ slice(enumerable, idx..idx)

@@ -10,6 +10,7 @@ defmodule Meal do
       alias Meal.Stream
       alias Meal.String
       alias Meal.Tuple
+      import Meal
     end
   end
 

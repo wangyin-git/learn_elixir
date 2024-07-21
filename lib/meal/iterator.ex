@@ -1,61 +1,21 @@
 defmodule Meal.Iterator do
-  @enforce_keys [:agent, :enumerable]
-  defstruct [:agent, :enumerable]
+  @enforce_keys [:iterable]
+  defstruct [:iterable]
 
-  def new(enumerable) do
-    {:ok, pid} = Agent.start(fn -> enumerable end)
-    %Meal.Iterator{agent: pid, enumerable: enumerable}
+  def new(iterable) do
+    unless Meal.impl_protocol?(iterable, Meal.Iterable) do
+      raise ArgumentError, "Argument for Meal.Iterator.new/1 must implement Meal.Iterable protocol"
+    end
+
+    %Meal.Iterator{iterable: iterable}
   end
 
-  def next(%Meal.Iterator{agent: agent}) do
-    Agent.get_and_update(
-      agent,
-      fn enumerable ->
-        if Enum.empty?(enumerable) do
-          {:end, []}
-        else
-          {{:ok, Enum.at(enumerable, 0)}, Enum.drop(enumerable, 1)}
-        end
-      end,
-      :infinity
-    )
+  def next(%Meal.Iterator{iterable: iterable}) do
+    Meal.Iterable.next(iterable)
   end
 
-  def peek(%Meal.Iterator{agent: agent}) do
-    Agent.get(
-      agent,
-      fn enumerable ->
-        if Enum.empty?(enumerable) do
-          :end
-        else
-          {:ok, Enum.at(enumerable, 0)}
-        end
-      end,
-      :infinity
-    )
-  end
-
-  def rewind(%Meal.Iterator{agent: agent, enumerable: enumerable}) do
-    Agent.update(
-      agent,
-      fn _ ->
-        enumerable
-      end,
-      :infinity
-    )
-  end
-
-  def stop(%Meal.Iterator{agent: agent}) do
-    code =
-      quote do
-        if Process.alive?(unquote(agent)) do
-          Agent.stop(unquote(agent))
-        else
-          :iterator_already_stopped
-        end
-      end
-
-    Meal.ExecuteServer.send(code: code, binding: [])
+  def peek(%Meal.Iterator{iterable: iterable}) do
+    Meal.Iterable.peek(iterable)
   end
 
   def end?(%Meal.Iterator{} = iter) do
@@ -102,6 +62,116 @@ defimpl Enumerable, for: Meal.Iterator do
         |> elem(1)
 
       reduce(iter, fun.(head, acc), fun)
+    end
+  end
+end
+
+defprotocol Meal.Iterable do
+  @spec next(any()) :: :end | {:ok, any(), %Meal.Iterator{}}
+  def next(iterable)
+
+  @spec peek(any()) :: :end | {:ok, any()}
+  def peek(iterable)
+end
+
+defimpl Meal.Iterable, for: List do
+  @spec next(list()) :: :end | {:ok, any(), %Meal.Iterator{iterable: list()}}
+  def next(list) do
+    if match?([], list) do
+      :end
+    else
+      {:ok, hd(list), Meal.Iterator.new(tl(list))}
+    end
+  end
+
+  @spec peek(list()) :: :end | {:ok, any()}
+  def peek(list) do
+    if match?([], list) do
+      :end
+    else
+      {:ok, hd(list)}
+    end
+  end
+end
+
+defimpl Meal.Iterable, for: Map do
+  @spec next(map()) :: :end | {:ok, {any(), any()}, %Meal.Iterator{iterable: map()}}
+  def next(map) do
+    if map_size(map) == 0 do
+      :end
+    else
+      {k, v} = Enum.at(map, 0)
+      {:ok, {k, v}, Meal.Iterator.new(Map.drop(map, [k]))}
+    end
+  end
+
+  @spec peek(map()) :: :end | {:ok, {any(), any()}}
+  def peek(map) do
+    if map_size(map) == 0 do
+      :end
+    else
+      {:ok, Enum.at(map, 0)}
+    end
+  end
+end
+
+defimpl Meal.Iterable, for: MapSet do
+  @spec next(%MapSet{}) :: :end | {:ok, any(), %Meal.Iterator{iterable: %MapSet{}}}
+  def next(set) do
+    if Enum.empty?(set) do
+      :end
+    else
+      v = Enum.at(set, 0)
+      {:ok, v, Meal.Iterator.new(MapSet.delete(set, v))}
+    end
+  end
+
+  @spec peek(MapSet.t()) :: :end | {:ok, any()}
+  def peek(set) do
+    if Enum.empty?(set) do
+      :end
+    else
+      {:ok, Enum.at(set, 0)}
+    end
+  end
+end
+
+defimpl Meal.Iterable, for: Tuple do
+  @spec next(tuple()) :: :end | {:ok, any(), %Meal.Iterator{iterable: tuple()}}
+  def next(tuple) do
+    if tuple_size(tuple) == 0 do
+      :end
+    else
+      {:ok, elem(tuple, 0), Meal.Iterator.new(Tuple.delete_at(tuple, 0))}
+    end
+  end
+
+  @spec peek(tuple()) :: :end | {:ok, any()}
+  def peek(tuple) do
+    if tuple_size(tuple) == 0 do
+      :end
+    else
+      {:ok, elem(tuple, 0)}
+    end
+  end
+end
+
+defimpl Meal.Iterable, for: Range do
+  @spec next(Range.t()) :: :end | {:ok, any(), %Meal.Iterator{iterable: Range.t()}}
+  def next(range) when is_struct(range, Range) do
+    if Enum.empty?(range) do
+      :end
+    else
+      {:ok, Enum.at(range, 0), Meal.Iterator.new(Range.split(range, 1) |> elem(1))}
+    end
+  end
+
+  @spec peek(Range.t()) :: :end | {:ok, any()}
+  def peek(range) when is_struct(range, Range) do
+    if Enum.empty?(range) do
+      :end
+    else
+      {:ok, Enum.at(range, 0)}
     end
   end
 end

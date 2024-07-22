@@ -11,12 +11,12 @@ defmodule Meal.Iterator do
     %Meal.Iterator{iterable: iterable}
   end
 
-  def next(%Meal.Iterator{iterable: iterable}) do
-    Meal.Iterable.next(iterable)
+  def next(%Meal.Iterator{iterable: iterable}, timeout \\ :infinity) do
+    Meal.Iterable.next(iterable, timeout)
   end
 
-  def peek(%Meal.Iterator{iterable: iterable}) do
-    Meal.Iterable.peek(iterable)
+  def peek(%Meal.Iterator{iterable: iterable}, timeout \\ :infinity) do
+    Meal.Iterable.peek(iterable, timeout)
   end
 
   def end?(%Meal.Iterator{} = iter) do
@@ -65,11 +65,9 @@ defimpl Enumerable, for: Meal.Iterator do
 end
 
 defprotocol Meal.Iterable do
-  @spec next(any()) :: :end | {:ok, any()}
-  def next(iterable)
+  def next(iterable, timeout)
 
-  @spec peek(any()) :: :end | {:ok, any()}
-  def peek(iterable)
+  def peek(iterable, timeout)
 end
 
 defmodule Meal.Enumerable_To_Iterable do
@@ -133,7 +131,7 @@ defmodule Meal.Enumerable_To_Iterable do
 end
 
 defimpl Meal.Iterable, for: Meal.Enumerable_To_Iterable do
-  def next(%Meal.Enumerable_To_Iterable{task: task}) do
+  def next(%Meal.Enumerable_To_Iterable{task: task}, timeout) do
     %Task{pid: pid, ref: ref} = task
     send(pid, {:next, self(), ref})
 
@@ -141,11 +139,11 @@ defimpl Meal.Iterable, for: Meal.Enumerable_To_Iterable do
       {:reply_for_next, ^ref, :end} -> :end
       {:reply_for_next, ^ref, {:ok, element}} -> {:ok, element}
     after
-      5000 -> raise "Meal.Iterable.next/1 timeout"
+      timeout -> raise "Meal.Iterable.next/1 timeout"
     end
   end
 
-  def peek(%Meal.Enumerable_To_Iterable{task: task}) do
+  def peek(%Meal.Enumerable_To_Iterable{task: task}, timeout) do
     %Task{pid: pid, ref: ref} = task
     send(pid, {:peek, self(), ref})
 
@@ -153,7 +151,7 @@ defimpl Meal.Iterable, for: Meal.Enumerable_To_Iterable do
       {:reply_for_peek, ^ref, :end} -> :end
       {:reply_for_peek, ^ref, {:ok, element}} -> {:ok, element}
     after
-      5000 -> raise "Meal.Iterable.peek/1 timeout"
+      timeout -> raise "Meal.Iterable.peek/1 timeout"
     end
   end
 end

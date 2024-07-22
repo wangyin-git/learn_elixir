@@ -4,7 +4,8 @@ defmodule Meal.Iterator do
 
   def new(iterable) do
     unless Meal.impl_protocol?(iterable, Meal.Iterable) do
-      raise ArgumentError, "Argument for Meal.Iterator.new/1 must implement Meal.Iterable protocol"
+      raise ArgumentError,
+            "Argument for Meal.Iterator.new/1 must implement Meal.Iterable protocol"
     end
 
     %Meal.Iterator{iterable: iterable}
@@ -57,10 +58,7 @@ defimpl Enumerable, for: Meal.Iterator do
     if Iterator.end?(iter) do
       {:done, acc}
     else
-      head =
-        Iterator.next(iter)
-        |> elem(1)
-
+      {:ok, head, iter} = Iterator.next(iter)
       reduce(iter, fun.(head, acc), fun)
     end
   end

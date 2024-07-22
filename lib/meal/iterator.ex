@@ -5,7 +5,7 @@ defmodule Meal.Iterator do
   def new(iterable) do
     unless Meal.impl_protocol?(iterable, Meal.Iterable) do
       raise ArgumentError,
-            "Argument for Meal.Iterator.new/1 must implement Meal.Iterable protocol"
+            "Argument of Meal.Iterator.new/1 must implement Meal.Iterable"
     end
 
     %Meal.Iterator{iterable: iterable}
@@ -58,118 +58,102 @@ defimpl Enumerable, for: Meal.Iterator do
     if Iterator.end?(iter) do
       {:done, acc}
     else
-      {:ok, head, iter} = Iterator.next(iter)
+      {:ok, head} = Iterator.next(iter)
       reduce(iter, fun.(head, acc), fun)
     end
   end
 end
 
 defprotocol Meal.Iterable do
-  @spec next(any()) :: :end | {:ok, any(), %Meal.Iterator{}}
+  @spec next(any()) :: :end | {:ok, any()}
   def next(iterable)
 
   @spec peek(any()) :: :end | {:ok, any()}
   def peek(iterable)
 end
 
-defimpl Meal.Iterable, for: List do
-  @spec next(list()) :: :end | {:ok, any(), %Meal.Iterator{iterable: list()}}
-  def next(list) do
-    if match?([], list) do
-      :end
-    else
-      {:ok, hd(list), Meal.Iterator.new(tl(list))}
+defmodule Meal.Enumerable_To_Iterable do
+  @enforce_keys [:task]
+  defstruct [:task]
+
+  def new(enumerable) do
+    unless Meal.impl_protocol?(enumerable, Enumerable) do
+      raise ArgumentError,
+            "Argument for Meal.Enumerable_To_Iterable.new/1 must implement Enumerable protocol"
     end
+
+    task =
+      Task.Supervisor.async(
+        Meal.Iterator.Supervisor,
+        fn ->
+          f = fn f, element ->
+            receive do
+              {:next, from, ref} ->
+                send(from, {:reply_for_next, ref, {:ok, element}})
+
+              {:peek, from, ref} ->
+                send(from, {:reply_for_peek, ref, {:ok, element}})
+                f.(f, element)
+
+              msg ->
+                raise "Invalid message #{msg} for #{__MODULE__}"
+            end
+          end
+
+          for element <- enumerable do
+            f.(f, element)
+          end
+
+          f = fn f ->
+            receive do
+              {:next, from, ref} ->
+                send(from, {:reply_for_next, ref, :end})
+                f.(f)
+
+              {:peek, from, ref} ->
+                send(from, {:reply_for_peek, ref, :end})
+                f.(f)
+
+              msg ->
+                raise "Invalid message #{msg} for #{__MODULE__}"
+            end
+          end
+
+          f.(f)
+        end,
+        shutdown: :brutal_kill
+      )
+
+    %__MODULE__{task: task}
   end
 
-  @spec peek(list()) :: :end | {:ok, any()}
-  def peek(list) do
-    if match?([], list) do
-      :end
-    else
-      {:ok, hd(list)}
-    end
-  end
-end
-
-defimpl Meal.Iterable, for: Map do
-  @spec next(map()) :: :end | {:ok, {any(), any()}, %Meal.Iterator{iterable: map()}}
-  def next(map) do
-    if map_size(map) == 0 do
-      :end
-    else
-      {k, v} = Enum.at(map, 0)
-      {:ok, {k, v}, Meal.Iterator.new(Map.drop(map, [k]))}
-    end
-  end
-
-  @spec peek(map()) :: :end | {:ok, {any(), any()}}
-  def peek(map) do
-    if map_size(map) == 0 do
-      :end
-    else
-      {:ok, Enum.at(map, 0)}
-    end
-  end
-end
-
-defimpl Meal.Iterable, for: MapSet do
-  @spec next(%MapSet{}) :: :end | {:ok, any(), %Meal.Iterator{iterable: %MapSet{}}}
-  def next(set) do
-    if Enum.empty?(set) do
-      :end
-    else
-      v = Enum.at(set, 0)
-      {:ok, v, Meal.Iterator.new(MapSet.delete(set, v))}
-    end
-  end
-
-  @spec peek(MapSet.t()) :: :end | {:ok, any()}
-  def peek(set) do
-    if Enum.empty?(set) do
-      :end
-    else
-      {:ok, Enum.at(set, 0)}
-    end
+  def shutdown(%Meal.Enumerable_To_Iterable{task: task}) do
+    Task.shutdown(task, :brutal_kill)
   end
 end
 
-defimpl Meal.Iterable, for: Tuple do
-  @spec next(tuple()) :: :end | {:ok, any(), %Meal.Iterator{iterable: tuple()}}
-  def next(tuple) do
-    if tuple_size(tuple) == 0 do
-      :end
-    else
-      {:ok, elem(tuple, 0), Meal.Iterator.new(Tuple.delete_at(tuple, 0))}
+defimpl Meal.Iterable, for: Meal.Enumerable_To_Iterable do
+  def next(%Meal.Enumerable_To_Iterable{task: task}) do
+    %Task{pid: pid, ref: ref} = task
+    send(pid, {:next, self(), ref})
+
+    receive do
+      {:reply_for_next, ^ref, :end} -> :end
+      {:reply_for_next, ^ref, {:ok, element}} -> {:ok, element}
+    after
+      5000 -> raise "Meal.Iterable.next/1 timeout"
     end
   end
 
-  @spec peek(tuple()) :: :end | {:ok, any()}
-  def peek(tuple) do
-    if tuple_size(tuple) == 0 do
-      :end
-    else
-      {:ok, elem(tuple, 0)}
-    end
-  end
-end
+  def peek(%Meal.Enumerable_To_Iterable{task: task}) do
+    %Task{pid: pid, ref: ref} = task
+    send(pid, {:peek, self(), ref})
 
-defimpl Meal.Iterable, for: Range do
-  @spec next(Range.t()) :: :end | {:ok, any(), %Meal.Iterator{iterable: Range.t()}}
-  def next(range) when is_struct(range, Range) do
-    if Enum.empty?(range) do
-      :end
-    else
-      {:ok, Enum.at(range, 0), Meal.Iterator.new(Range.split(range, 1) |> elem(1))}
-    end
-  end
-
-  @spec peek(Range.t()) :: :end | {:ok, any()}
-  def peek(range) when is_struct(range, Range) do
-    if Enum.empty?(range) do
-      :end
-    else
-      {:ok, Enum.at(range, 0)}
+    receive do
+      {:reply_for_peek, ^ref, :end} -> :end
+      {:reply_for_peek, ^ref, {:ok, element}} -> {:ok, element}
+    after
+      5000 -> raise "Meal.Iterable.peek/1 timeout"
     end
   end
 end

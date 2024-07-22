@@ -96,7 +96,7 @@ defmodule Meal.Enumerable_To_Iterable do
                 f.(f, element)
 
               msg ->
-                raise "Invalid message #{msg} for #{__MODULE__}"
+                raise "Invalid message #{inspect(msg)} for #{__MODULE__}"
             end
           end
 
@@ -115,7 +115,7 @@ defmodule Meal.Enumerable_To_Iterable do
                 f.(f)
 
               msg ->
-                raise "Invalid message #{msg} for #{__MODULE__}"
+                raise "Invalid message #{inspect(msg)} for #{__MODULE__}"
             end
           end
 

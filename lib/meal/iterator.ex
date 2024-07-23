@@ -81,42 +81,46 @@ defmodule Meal.Enumerable_To_Iterable do
     end
 
     task =
-      Task.Supervisor.async(Meal.Iterator.Supervisor, fn ->
-        f = fn f, element ->
-          receive do
-            {:next, from, ref} ->
-              send(from, {:reply_for_next, ref, {:ok, element}})
+      Task.Supervisor.async(
+        Meal.Iterator.Supervisor,
+        fn ->
+          f = fn f, element ->
+            receive do
+              {:next, from, ref} ->
+                send(from, {:reply_for_next, ref, {:ok, element}})
 
-            {:peek, from, ref} ->
-              send(from, {:reply_for_peek, ref, {:ok, element}})
-              f.(f, element)
+              {:peek, from, ref} ->
+                send(from, {:reply_for_peek, ref, {:ok, element}})
+                f.(f, element)
 
-            msg ->
-              raise "Invalid message #{inspect(msg)} for #{__MODULE__}"
+              msg ->
+                raise "Invalid message #{inspect(msg)} for #{__MODULE__}"
+            end
           end
-        end
 
-        for element <- enumerable do
-          f.(f, element)
-        end
-
-        f = fn f ->
-          receive do
-            {:next, from, ref} ->
-              send(from, {:reply_for_next, ref, :end})
-              f.(f)
-
-            {:peek, from, ref} ->
-              send(from, {:reply_for_peek, ref, :end})
-              f.(f)
-
-            msg ->
-              raise "Invalid message #{inspect(msg)} for #{__MODULE__}"
+          for element <- enumerable do
+            f.(f, element)
           end
-        end
 
-        f.(f)
-      end, shutdown: :brutal_kill)
+          f = fn f ->
+            receive do
+              {:next, from, ref} ->
+                send(from, {:reply_for_next, ref, :end})
+                f.(f)
+
+              {:peek, from, ref} ->
+                send(from, {:reply_for_peek, ref, :end})
+                f.(f)
+
+              msg ->
+                raise "Invalid message #{inspect(msg)} for #{__MODULE__}"
+            end
+          end
+
+          f.(f)
+        end,
+        shutdown: :brutal_kill
+      )
 
     %__MODULE__{task: task}
   end
@@ -129,8 +133,8 @@ end
 defimpl Meal.Iterable, for: Meal.Enumerable_To_Iterable do
   def next(%Meal.Enumerable_To_Iterable{task: task}, opts) do
     timeout = Keyword.fetch!(opts, :timeout)
-    %Task{pid: pid, ref: ref} = task
-    send(pid, {:next, self(), ref})
+    ref = make_ref()
+    send(task.pid, {:next, self(), ref})
 
     receive do
       {:reply_for_next, ^ref, :end} -> :end
@@ -142,8 +146,8 @@ defimpl Meal.Iterable, for: Meal.Enumerable_To_Iterable do
 
   def peek(%Meal.Enumerable_To_Iterable{task: task}, opts) do
     timeout = Keyword.fetch!(opts, :timeout)
-    %Task{pid: pid, ref: ref} = task
-    send(pid, {:peek, self(), ref})
+    ref = make_ref()
+    send(task.pid, {:peek, self(), ref})
 
     receive do
       {:reply_for_peek, ^ref, :end} -> :end

@@ -20,6 +20,7 @@ defmodule Meal do
       # Starts a worker by calling: Meal.Worker.start_link(arg)
       # {Meal.Worker, arg}
       {Task.Supervisor, name: Meal.Parallel.Supervisor, strategy: :one_for_one},
+      {Task.Supervisor, name: Meal.Iterator.Supervisor, strategy: :one_for_one},
       {Task.Supervisor, name: Meal.Channel.Supervisor, strategy: :one_for_one}
     ]
 

@@ -5,7 +5,7 @@ defmodule Meal.Iterator do
   def new(iterable) do
     unless Meal.impl_protocol?(iterable, Meal.Iterable) do
       raise ArgumentError,
-            "Argument of Meal.Iterator.new/1 must implement Meal.Iterable"
+            "Argument of #{__MODULE__}.new/1 must implement Meal.Iterable"
     end
 
     %Meal.Iterator{iterable: iterable}
@@ -136,7 +136,7 @@ defimpl Meal.Iterable, for: Meal.Enumerable_To_Iterable do
       {:reply_for_next, ^ref, :end} -> :end
       {:reply_for_next, ^ref, {:ok, element}} -> {:ok, element}
     after
-      timeout -> raise "Meal.Iterable.next/1 timeout"
+      timeout -> raise "#{__MODULE__}.next/1 timeout"
     end
   end
 
@@ -149,7 +149,7 @@ defimpl Meal.Iterable, for: Meal.Enumerable_To_Iterable do
       {:reply_for_peek, ^ref, :end} -> :end
       {:reply_for_peek, ^ref, {:ok, element}} -> {:ok, element}
     after
-      timeout -> raise "Meal.Iterable.peek/1 timeout"
+      timeout -> raise "#{__MODULE__}.peek/1 timeout"
     end
   end
 end

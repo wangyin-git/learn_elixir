@@ -19,7 +19,8 @@ defmodule Meal do
     children = [
       # Starts a worker by calling: Meal.Worker.start_link(arg)
       # {Meal.Worker, arg}
-      {Task.Supervisor, name: Meal.Parallel.Supervisor}
+      {Task.Supervisor, name: Meal.Parallel.Supervisor, strategy: :one_for_one},
+      {Task.Supervisor, name: Meal.Channel.Supervisor, strategy: :one_for_one}
     ]
 
     # See https://hexdocs.pm/elixir/Supervisor.html

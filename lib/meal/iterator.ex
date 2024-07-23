@@ -11,12 +11,12 @@ defmodule Meal.Iterator do
     %Meal.Iterator{iterable: iterable}
   end
 
-  def next(%Meal.Iterator{iterable: iterable}, timeout \\ :infinity) do
-    Meal.Iterable.next(iterable, timeout)
+  def next(%Meal.Iterator{iterable: iterable}, opts \\ [timeout: :infinity]) do
+    Meal.Iterable.next(iterable, opts)
   end
 
-  def peek(%Meal.Iterator{iterable: iterable}, timeout \\ :infinity) do
-    Meal.Iterable.peek(iterable, timeout)
+  def peek(%Meal.Iterator{iterable: iterable}, opts \\ [timeout: :infinity]) do
+    Meal.Iterable.peek(iterable, opts)
   end
 
   def end?(%Meal.Iterator{} = iter) do
@@ -65,9 +65,9 @@ defimpl Enumerable, for: Meal.Iterator do
 end
 
 defprotocol Meal.Iterable do
-  def next(iterable, timeout)
+  def next(iterable, opts)
 
-  def peek(iterable, timeout)
+  def peek(iterable, opts)
 end
 
 defmodule Meal.Enumerable_To_Iterable do
@@ -81,46 +81,42 @@ defmodule Meal.Enumerable_To_Iterable do
     end
 
     task =
-      Task.Supervisor.async(
-        Meal.Iterator.Supervisor,
-        fn ->
-          f = fn f, element ->
-            receive do
-              {:next, from, ref} ->
-                send(from, {:reply_for_next, ref, {:ok, element}})
+      Task.async(fn ->
+        f = fn f, element ->
+          receive do
+            {:next, from, ref} ->
+              send(from, {:reply_for_next, ref, {:ok, element}})
 
-              {:peek, from, ref} ->
-                send(from, {:reply_for_peek, ref, {:ok, element}})
-                f.(f, element)
+            {:peek, from, ref} ->
+              send(from, {:reply_for_peek, ref, {:ok, element}})
+              f.(f, element)
 
-              msg ->
-                raise "Invalid message #{inspect(msg)} for #{__MODULE__}"
-            end
+            msg ->
+              raise "Invalid message #{inspect(msg)} for #{__MODULE__}"
           end
+        end
 
-          for element <- enumerable do
-            f.(f, element)
+        for element <- enumerable do
+          f.(f, element)
+        end
+
+        f = fn f ->
+          receive do
+            {:next, from, ref} ->
+              send(from, {:reply_for_next, ref, :end})
+              f.(f)
+
+            {:peek, from, ref} ->
+              send(from, {:reply_for_peek, ref, :end})
+              f.(f)
+
+            msg ->
+              raise "Invalid message #{inspect(msg)} for #{__MODULE__}"
           end
+        end
 
-          f = fn f ->
-            receive do
-              {:next, from, ref} ->
-                send(from, {:reply_for_next, ref, :end})
-                f.(f)
-
-              {:peek, from, ref} ->
-                send(from, {:reply_for_peek, ref, :end})
-                f.(f)
-
-              msg ->
-                raise "Invalid message #{inspect(msg)} for #{__MODULE__}"
-            end
-          end
-
-          f.(f)
-        end,
-        shutdown: :brutal_kill
-      )
+        f.(f)
+      end)
 
     %__MODULE__{task: task}
   end
@@ -131,7 +127,8 @@ defmodule Meal.Enumerable_To_Iterable do
 end
 
 defimpl Meal.Iterable, for: Meal.Enumerable_To_Iterable do
-  def next(%Meal.Enumerable_To_Iterable{task: task}, timeout) do
+  def next(%Meal.Enumerable_To_Iterable{task: task}, opts) do
+    timeout = Keyword.fetch!(opts, :timeout)
     %Task{pid: pid, ref: ref} = task
     send(pid, {:next, self(), ref})
 
@@ -143,7 +140,8 @@ defimpl Meal.Iterable, for: Meal.Enumerable_To_Iterable do
     end
   end
 
-  def peek(%Meal.Enumerable_To_Iterable{task: task}, timeout) do
+  def peek(%Meal.Enumerable_To_Iterable{task: task}, opts) do
+    timeout = Keyword.fetch!(opts, :timeout)
     %Task{pid: pid, ref: ref} = task
     send(pid, {:peek, self(), ref})
 

@@ -10,6 +10,14 @@ defmodule Meal do
       alias Meal.Stream
       alias Meal.String
       alias Meal.Tuple
+      alias Meal.Iterator
+      alias Meal.Enumerable_To_Iterable
+      alias Meal.Math
+      alias Meal.Queue
+      alias Meal.Stack
+      alias Meal.Delegate
+      alias Meal.Parallel
+      alias Meal.Channel
       import Meal
     end
   end

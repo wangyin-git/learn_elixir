@@ -81,7 +81,7 @@ defmodule Meal.Enumerable_To_Iterable do
     end
 
     task =
-      Task.async(fn ->
+      Task.Supervisor.async(Meal.Iterator.Supervisor, fn ->
         f = fn f, element ->
           receive do
             {:next, from, ref} ->
@@ -116,7 +116,7 @@ defmodule Meal.Enumerable_To_Iterable do
         end
 
         f.(f)
-      end)
+      end, shutdown: :brutal_kill)
 
     %__MODULE__{task: task}
   end

@@ -13,6 +13,7 @@ defmodule Meal do
       alias Meal.Iterator
       alias Meal.Enumerable_To_Iterable
       alias Meal.Math
+      alias Meal.Array
       alias Meal.Queue
       alias Meal.Stack
       alias Meal.Delegate

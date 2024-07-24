@@ -68,7 +68,7 @@ defmodule Meal.Channel do
       GenServer.call(gen_server, {:write, data}, timeout)
     catch
       :exit, {:timeout, _} -> :timeout
-      :exit, _ -> :closed
+      :exit, _ -> raise "Write to closed Channel"
     end
   end
 
@@ -219,5 +219,44 @@ defmodule Meal.Channel do
         new_state = %State{state | readers: Queue.new()}
         {:noreply, new_state}
     end
+  end
+end
+
+defimpl Enumerable, for: Meal.Channel do
+  def count(%Meal.Channel{}) do
+    {:error, __MODULE__}
+  end
+
+  def member?(%Meal.Channel{}, _element) do
+      {:error, __MODULE__}
+  end
+
+  def reduce(_, {:halt, acc}, _fun), do: {:halted, acc}
+  def reduce(channel, {:suspend, acc}, fun), do: {:suspended, acc, &reduce(channel, &1, fun)}
+
+  def reduce(%Meal.Channel{} = channel, {:cont, acc}, fun) do
+    case Meal.Channel.read(channel) do
+      {:ok, element} -> reduce(channel, fun.(element, acc), fun)
+      :closed -> {:done, acc}
+    end
+  end
+
+  def slice(%Meal.Channel{}) do
+    {:error, __MODULE__}
+  end
+end
+
+defimpl Collectable, for: Meal.Channel do
+  def into(%Meal.Channel{} = channel) do
+    collector_fun = fn
+      acc, {:cont, elem} -> case Meal.Channel.write(acc, elem) do
+        :ok -> acc
+        :closed -> raise "Write to closed Channel"
+      end
+      acc, :done -> acc
+      _, :halt -> :ok
+    end
+
+    {channel, collector_fun}
   end
 end

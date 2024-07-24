@@ -32,13 +32,14 @@ defmodule Meal.Channel do
   @enforce_keys [:gen_server, :buff_size]
   defstruct [:gen_server, :buff_size]
 
+  require Meal
   alias Meal.Queue
   alias Meal.Channel.MailBox
   alias Meal.Channel.Reader
   alias Meal.Channel.Writter
   alias Meal.Channel.State
 
-  def new(buff_size \\ 0) do
+  def new(buff_size \\ 0) when Meal.is_non_neg_integer(buff_size) do
     {:ok, gen_server} =
       DynamicSupervisor.start_child(Meal.Channel.Supervisor, {__MODULE__, buff_size})
 
@@ -227,7 +228,7 @@ defimpl Enumerable, for: Meal.Channel do
   end
 
   def member?(%Meal.Channel{}, _element) do
-      {:error, __MODULE__}
+    {:error, __MODULE__}
   end
 
   def reduce(_, {:halt, acc}, _fun), do: {:halted, acc}
@@ -248,12 +249,17 @@ end
 defimpl Collectable, for: Meal.Channel do
   def into(%Meal.Channel{} = channel) do
     collector_fun = fn
-      acc, {:cont, elem} -> case Meal.Channel.write(acc, elem) do
-        :ok -> acc
-        :closed -> raise "Write to closed Channel"
-      end
-      acc, :done -> acc
-      _, :halt -> :ok
+      acc, {:cont, elem} ->
+        case Meal.Channel.write(acc, elem) do
+          :ok -> acc
+          :closed -> raise "Write to closed Channel"
+        end
+
+      acc, :done ->
+        acc
+
+      _, :halt ->
+        :ok
     end
 
     {channel, collector_fun}

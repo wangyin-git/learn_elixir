@@ -32,7 +32,6 @@ defmodule Meal.Channel do
   @enforce_keys [:gen_server, :buff_size]
   defstruct [:gen_server, :buff_size]
 
-  alias Config.Reader
   alias Meal.Queue
   alias Meal.Channel.MailBox
   alias Meal.Channel.Reader

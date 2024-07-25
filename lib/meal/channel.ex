@@ -246,6 +246,7 @@ defmodule Meal.Channel do
           :read ->
             new_state = %State{state | writters: writters}
             GenServer.reply(reader.from, {:ok, writter.data})
+            GenServer.reply(writter.from, :ok)
             {:noreply, new_state}
 
           :peek ->
@@ -269,6 +270,7 @@ defmodule Meal.Channel do
         case reader.type do
           :read ->
             GenServer.reply(reader.from, {:ok, writter.data})
+            GenServer.reply(writter.from, :ok)
             {:noreply, new_state}
 
           :peek ->

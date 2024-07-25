@@ -94,6 +94,21 @@ defmodule Meal.Channel do
     end
   end
 
+  def select(channels, opts \\ [timeout: :infinity]) do
+    timeout = Keyword.fetch!(opts, :timeout)
+
+    Meal.Parallel.find_value(
+      channels,
+      :timeout,
+      fn channel ->
+        {channel, Meal.Channel.read(channel)}
+      end,
+      ordered: false,
+      max_concurrency: length(channels),
+      timeout: timeout
+    )
+  end
+
   defp __read__(%State{} = state) do
     mail_box = state.mail_box
 
@@ -134,12 +149,17 @@ defmodule Meal.Channel do
   def handle_call(:read, from, %State{} = state) do
     mail_box = state.mail_box
 
-    if mail_box.current_size == 0 do
-      new_state = update_in(state.readers, &Queue.enq(&1, %Reader{from: from}))
-      {:noreply, new_state}
-    else
-      {element, new_state} = __read__(state)
-      {:reply, {:ok, element}, new_state, {:continue, :read_complete}}
+    cond do
+      mail_box.current_size == 0 && mail_box.buff_size == 0 ->
+        {:noreply, state, {:continue, {:have_reader, %Reader{from: from}}}}
+
+      mail_box.current_size == 0 ->
+        new_state = update_in(state.readers, &Queue.enq(&1, %Reader{from: from}))
+        {:noreply, new_state}
+
+      true ->
+        {element, new_state} = __read__(state)
+        {:reply, {:ok, element}, new_state, {:continue, :read_complete}}
     end
   end
 
@@ -148,11 +168,16 @@ defmodule Meal.Channel do
     current_size = state.mail_box.current_size
     buff_size = state.mail_box.buff_size
 
-    if current_size < buff_size || (current_size == 0 && buff_size == 0) do
-      {:reply, :ok, __write__(state, data), {:continue, :write_complete}}
-    else
-      new_state = update_in(state.writters, &Queue.enq(&1, %Writter{from: from, data: data}))
-      {:noreply, new_state}
+    cond do
+      current_size == 0 && buff_size == 0 ->
+        {:noreply, state, {:continue, {:have_writter, %Writter{from: from, data: data}}}}
+
+      current_size < buff_size ->
+        {:reply, :ok, __write__(state, data), {:continue, :write_complete}}
+
+      true ->
+        new_state = update_in(state.writters, &Queue.enq(&1, %Writter{from: from, data: data}))
+        {:noreply, new_state}
     end
   end
 
@@ -160,31 +185,22 @@ defmodule Meal.Channel do
   def handle_call(:peek, from, %State{} = state) do
     mail_box = state.mail_box
 
-    if mail_box.current_size == 0 do
-      new_state = update_in(state.readers, &Queue.enq(&1, %Reader{from: from, type: :peek}))
-      {:noreply, new_state}
-    else
-      {element, new_state} = __peek__(state)
-      {:reply, {:ok, element}, new_state}
+    cond do
+      mail_box.current_size == 0 && mail_box.buff_size == 0 ->
+        {:noreply, state, {:continue, {:have_reader, %Reader{from: from, type: :peek}}}}
+
+      mail_box.current_size == 0 ->
+        new_state = update_in(state.readers, &Queue.enq(&1, %Reader{from: from, type: :peek}))
+        {:noreply, new_state}
+
+      true ->
+        {element, new_state} = __peek__(state)
+        {:reply, {:ok, element}, new_state}
     end
   end
 
   @impl GenServer
   def handle_continue(:read_complete, %State{} = state) do
-    find_writter_to_write(state)
-  end
-
-  @impl GenServer
-  def handle_continue(:write_complete, %State{} = state) do
-    find_reader_to_read(state)
-  end
-
-  @impl GenServer
-  def handle_info(_, state) do
-    {:noreply, state}
-  end
-
-  defp find_writter_to_write(%State{} = state) do
     case Queue.deq(state.writters) do
       {writter, writters} ->
         new_state = %State{state | writters: writters}
@@ -198,7 +214,8 @@ defmodule Meal.Channel do
     end
   end
 
-  defp find_reader_to_read(%State{} = state) do
+  @impl GenServer
+  def handle_continue(:write_complete, %State{} = state) do
     case Queue.deq(state.readers) do
       {reader, readers} ->
         new_state = %State{state | readers: readers}
@@ -219,6 +236,56 @@ defmodule Meal.Channel do
         new_state = %State{state | readers: Queue.new()}
         {:noreply, new_state}
     end
+  end
+
+  @impl GenServer
+  def handle_continue({:have_reader, %Reader{} = reader}, state) do
+    case Queue.deq(state.writters) do
+      {writter, writters} ->
+        case reader.type do
+          :read ->
+            new_state = %State{state | writters: writters}
+            GenServer.reply(reader.from, {:ok, writter.data})
+            {:noreply, new_state}
+
+          :peek ->
+            GenServer.reply(reader.from, {:ok, writter.data})
+            {:noreply, state}
+        end
+
+      :empty ->
+        new_state = %State{state | writters: Queue.new()}
+        new_state = update_in(new_state.readers, &Queue.enq(&1, reader))
+        {:noreply, new_state}
+    end
+  end
+
+  @impl GenServer
+  def handle_continue({:have_writter, %Writter{} = writter}, state) do
+    case Queue.deq(state.readers) do
+      {reader, readers} ->
+        new_state = %State{state | readers: readers}
+
+        case reader.type do
+          :read ->
+            GenServer.reply(reader.from, {:ok, writter.data})
+            {:noreply, new_state}
+
+          :peek ->
+            GenServer.reply(reader.from, {:ok, writter.data})
+            {:noreply, new_state, {:continue, {:have_writter, writter}}}
+        end
+
+      :empty ->
+        new_state = %State{state | readers: Queue.new()}
+        new_state = update_in(new_state.writters, &Queue.enq(&1, writter))
+        {:noreply, new_state}
+    end
+  end
+
+  @impl GenServer
+  def handle_info(_, state) do
+    {:noreply, state}
   end
 end
 

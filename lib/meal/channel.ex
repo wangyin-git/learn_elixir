@@ -94,17 +94,42 @@ defmodule Meal.Channel do
     end
   end
 
-  def select(channels, opts \\ [timeout: :infinity]) do
+  defmacro read_op(channel) do
+    quote do
+      {unquote(channel), :read}
+    end
+  end
+
+  defmacro peek_op(channel) do
+    quote do
+      {unquote(channel), :peek}
+    end
+  end
+
+  defmacro write_op(channel, data) do
+    quote do
+      {{unquote(channel), unquote(data)}, :write}
+    end
+  end
+
+  def select(channel_ops, opts \\ [timeout: :infinity]) do
     timeout = Keyword.fetch!(opts, :timeout)
 
     Meal.Parallel.find_value(
-      channels,
+      channel_ops,
       :timeout,
-      fn channel ->
-        {channel, Meal.Channel.read(channel)}
+      fn
+        read_op(channel) ->
+          {read_op(channel), Meal.Channel.read(channel)}
+
+        peek_op(channel) ->
+          {peek_op(channel), Meal.Channel.peek(channel)}
+
+        write_op(channel, data) ->
+          {write_op(channel, data), Meal.Channel.write(channel, data)}
       end,
       ordered: false,
-      max_concurrency: length(channels),
+      max_concurrency: Enum.count(channel_ops),
       timeout: timeout
     )
   end

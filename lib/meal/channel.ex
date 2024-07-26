@@ -67,7 +67,7 @@ defmodule Meal.Channel do
       GenServer.call(gen_server, {:write, data}, timeout)
     catch
       :exit, {:timeout, _} -> :timeout
-      :exit, _ -> raise "Write to closed Channel"
+      :exit, _ -> :closed
     end
   end
 

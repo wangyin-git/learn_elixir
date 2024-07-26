@@ -12,6 +12,23 @@ defmodule Meal.Channel do
     %__MODULE__{gen_server: gen_server, buff_size: buff_size, type: type}
   end
 
+  def delay(milliseconds) do
+    channel = new(0, :read_only)
+
+    spawn(fn ->
+      Process.sleep(milliseconds)
+
+      try do
+        GenServer.call(channel.gen_server, {:write, 0}, :infinity)
+        close(channel)
+      catch
+        :exit, _ -> nil
+      end
+    end)
+
+    channel
+  end
+
   def read(channel, opts \\ [timeout: :infinity])
 
   def read(%__MODULE__{gen_server: gen_server, type: :read_only}, opts) do
